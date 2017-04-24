@@ -6,6 +6,7 @@ package server.rest;
 
 import api.Document;
 import api.Endpoint;
+import api.ServerConfig;
 import api.rest.IndexerServiceAPI;
 import api.soap.IndexerAPI;
 import static api.soap.IndexerAPI.NAME;
@@ -61,7 +62,7 @@ public class IndexerServiceResources implements IndexerServiceAPI {
     }
 
     @Override
-    public void add(String id, Document doc) {
+    public void add(String id, String secret, Document doc) {
         boolean status = storage.store(id, doc);
         if (!status) {
             //If document already exists in storage
@@ -71,7 +72,7 @@ public class IndexerServiceResources implements IndexerServiceAPI {
     }
 
     @Override
-    public void remove(String id) {
+    public void remove(String id, String secret) {
         //Getting all indexers registered in rendezvous
         ClientConfig config = new ClientConfig();
         Client client = ClientBuilder.newClient(config);
@@ -165,5 +166,10 @@ public class IndexerServiceResources implements IndexerServiceAPI {
             }
         }
         return false;
+    }
+
+    @Override
+    public void configure(String secret, ServerConfig config) {
+        //Do nothing, return success code
     }
 }
