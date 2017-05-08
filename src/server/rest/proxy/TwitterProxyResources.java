@@ -7,44 +7,98 @@ package server.rest.proxy;
 
 import api.Document;
 import api.ServerConfig;
+import com.github.scribejava.apis.TwitterApi;
+import com.github.scribejava.core.builder.ServiceBuilder;
+import com.github.scribejava.core.model.OAuth1AccessToken;
+import com.github.scribejava.core.model.OAuthRequest;
+import com.github.scribejava.core.model.Verb;
+import com.github.scribejava.core.oauth.OAuth10aService;
+import java.io.IOException;
+import java.net.URLEncoder;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.Status;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 
 /**
  *
  * @author miguel
  */
-public class TwitterProxyResources implements api.rest.IndexerServiceAPI{
-    
+public class TwitterProxyResources implements api.rest.IndexerServiceAPI {
+
+    private static final String SEARCH_API_TWITTER_BASE_URL = "https://api.twitter.com/1.1/search/tweets.json?q=";
+    private static final String TWEET_BASE_URL = "https://twitter.com/statuses/";
+    private static final String ENCODING = "UTF-8";
+
     ServerConfig serverConfig;
 
     @Override
     public List<String> search(String keywords) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        try {
+            final OAuth10aService service = new ServiceBuilder().apiKey(serverConfig.getApiKey()).apiSecret(serverConfig.getApuSecret())
+                    .build(TwitterApi.instance());
+
+            OAuth1AccessToken accessToken = new OAuth1AccessToken(serverConfig.getToken(), serverConfig.getTokenSecret());
+
+            OAuthRequest req = new OAuthRequest(Verb.GET,
+                    SEARCH_API_TWITTER_BASE_URL + URLEncoder.encode(keywords, ENCODING));
+            service.signRequest(accessToken, req);
+            final com.github.scribejava.core.model.Response res = service.execute(req);
+
+            System.err.println("URL: " + req.getCompleteUrl());
+            System.err.println("REST code:" + res.getCode());
+
+            return parseJson(res.getBody());
+
+        } catch (IOException | InterruptedException | ExecutionException | ParseException ex) {
+            ex.printStackTrace();
+            throw new WebApplicationException(Status.INTERNAL_SERVER_ERROR);
+        }
     }
 
     @Override
     public void configure(String secret, ServerConfig config) {
-        if(secret!=secret)
+        if (secret != secret) {
             throw new WebApplicationException(Response.Status.FORBIDDEN);
-        
+        }
+        System.err.println(secret);
         serverConfig = config;
-        System.err.println(serverConfig.getApiKey());     
+        System.err.println(serverConfig.getApiKey());
     }
 
     @Override
     public void add(String id, String secret, Document doc) {
-        throw new WebApplicationException(Response.Status.METHOD_NOT_ALLOWED);
+        throw new WebApplicationException(Status.METHOD_NOT_ALLOWED);
     }
 
     @Override
     public void remove(String id, String secret) {
-        throw new WebApplicationException(Response.Status.METHOD_NOT_ALLOWED);
+        throw new WebApplicationException(Status.METHOD_NOT_ALLOWED);
     }
 
     @Override
     public void removeDoc(String id) {
-        throw new WebApplicationException(Response.Status.METHOD_NOT_ALLOWED);
+        throw new WebApplicationException(Status.METHOD_NOT_ALLOWED);
+    }
+
+    private List<String> parseJson(String json) throws ParseException {
+        Object obj = new JSONParser().parse(json);
+
+        JSONObject jsonObject = (JSONObject) obj;
+        JSONArray statuses = (JSONArray) jsonObject.get("statuses");
+
+        List<String> ids = new ArrayList(statuses.size());
+        
+        for (int i = 0; i < statuses.size(); i++) {
+            JSONObject tweet = (JSONObject) statuses.get(i);
+            ids.add(TWEET_BASE_URL + tweet.get("id"));
+        }
+        return ids;
     }
 }

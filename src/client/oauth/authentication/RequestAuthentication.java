@@ -32,7 +32,7 @@ public class RequestAuthentication {
 
     public static void main(String... args) {
         try {
-            String url = "http://127.0.1.1:8081/indexer";
+            String url = "http://172.17.0.3:8081/indexer";
             if (args.length > 0) {
                 url = args[0];
             }
@@ -74,7 +74,7 @@ public class RequestAuthentication {
                     ClientConfig config = new ClientConfig();
                     Client client = ClientBuilder.newClient(config);
                     WebTarget target = client.target(url);
-                    Response response = target.path("/configure?secret=" + SECRET)
+                    Response response = target.path("/configure").queryParam("secret", SECRET)
                             .request()
                             .put(Entity.entity(serverConfig, MediaType.APPLICATION_JSON));
 

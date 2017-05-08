@@ -11,9 +11,12 @@ public class ServerConfig {
     private String apuSecret;
     private String token;
     private String tokenSecret;
-
+    
+    public ServerConfig () {
+        
+    }
+    
     public ServerConfig(String apiKey, String apuSecret, String token, String tokenSecret) {
-        super();
         this.apiKey = apiKey;
         this.apuSecret = apuSecret;
         this.token = token;
@@ -35,5 +38,4 @@ public class ServerConfig {
     public String getTokenSecret() {
         return tokenSecret;
     }
-
 }
