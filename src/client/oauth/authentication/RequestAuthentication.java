@@ -21,7 +21,6 @@ import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import org.glassfish.jersey.client.ClientConfig;
-
 /**
  *
  * @author miguel
@@ -33,7 +32,7 @@ public class RequestAuthentication {
 
     public static void main(String... args) {
         try {
-            String url = "http://localhost:8080/indexer";
+            String url = "http://127.0.1.1:8081/indexer";
             if (args.length > 0) {
                 url = args[0];
             }
@@ -68,20 +67,16 @@ public class RequestAuthentication {
 
             ServerConfig serverConfig = new ServerConfig(apiKey, apiSecret, token, tokenSecret);
             // construir access token a partir dos elementos
-
-            /**
-             * OAuth1AccessToken accessToken = new OAuth1AccessToken(token,
-             * tokenSecret);
-             */
+ 
             
             for (int retry = 0; retry < 3; retry++) {
                 try {
                     ClientConfig config = new ClientConfig();
                     Client client = ClientBuilder.newClient(config);
                     WebTarget target = client.target(url);
-                    Response response = target.path("/configure/" + SECRET)
+                    Response response = target.path("/configure?secret=" + SECRET)
                             .request()
-                            .post(Entity.entity(serverConfig, MediaType.APPLICATION_JSON));
+                            .put(Entity.entity(serverConfig, MediaType.APPLICATION_JSON));
 
                     System.err.println(response.getStatus());
                     break;
