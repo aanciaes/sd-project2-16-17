@@ -11,12 +11,12 @@ public interface Cache {
     
     boolean inCache (String keywords /*or String url*/);
     
-    List<String> getTweets (String keyword /*or String url*/);
+    List<String> getTweets (String keywords /*or String url*/);
     
-    void store (String keyword /*or String url*/, List<String> tweets);
+    void store (String keywords /*or String url*/, List<String> tweets);
     
     void updateCache ();
     
-    void delete (String keyword /*or String url*/);
+    void delete (String keywords /*or String url*/);
     
 }
