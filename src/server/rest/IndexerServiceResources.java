@@ -63,6 +63,11 @@ public class IndexerServiceResources implements IndexerServiceAPI {
 
     @Override
     public void add(String id, String secret, Document doc) {
+
+        if (RendezVousServer.SECRET.equals(secret)) {
+            throw new WebApplicationException(Response.Status.FORBIDDEN);
+        }
+        
         boolean status = storage.store(id, doc);
         if (!status) {
             //If document already exists in storage
@@ -73,9 +78,11 @@ public class IndexerServiceResources implements IndexerServiceAPI {
 
     @Override
     public void remove(String id, String secret) {
-        //Getting all indexers registered in rendezvous
-        ClientConfig config = new ClientConfig();
-        Client client = ClientBuilder.newClient(config);
+        if (RendezVousServer.SECRET.equals(secret)) {
+            throw new WebApplicationException(Response.Status.FORBIDDEN);
+        }
+        //Getting all indexers registered in rendezvous 
+        Client client = ClientBuilder.newBuilder().hostnameVerifier(new IndexerServiceServer.InsecureHostnameVerifier()).build();
 
         Endpoint[] endpoints = null;
         for (int retry = 0; retry < 3; retry++) {
@@ -147,7 +154,7 @@ public class IndexerServiceResources implements IndexerServiceAPI {
             Service service = Service.create(wsURL, QNAME);
             IndexerAPI indexer = service.getPort(IndexerAPI.class);
             return indexer.removeDoc(id);
-        } catch (IndexerAPI.InvalidArgumentException | MalformedURLException ex) {
+        } catch (MalformedURLException ex) {
             return false;
         }
     }
@@ -155,8 +162,7 @@ public class IndexerServiceResources implements IndexerServiceAPI {
     private boolean removeRest(String id, String url) throws WebApplicationException {
         for (int retry = 0; retry < 3; retry++) {
             try {
-                ClientConfig config = new ClientConfig();
-                Client client = ClientBuilder.newClient(config);
+                Client client = ClientBuilder.newBuilder().hostnameVerifier(new IndexerServiceServer.InsecureHostnameVerifier()).build();
                 WebTarget newTarget = client.target(url);
                 Response response = newTarget.path("/remove/" + id).request().delete();
 
@@ -171,5 +177,8 @@ public class IndexerServiceResources implements IndexerServiceAPI {
     @Override
     public void configure(String secret, ServerConfig config) {
         //Do nothing, return success code
+        if (RendezVousServer.SECRET.equals(secret)) {
+            throw new WebApplicationException(Response.Status.FORBIDDEN);
+        }
     }
 }

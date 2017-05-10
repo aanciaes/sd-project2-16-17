@@ -11,6 +11,7 @@ import java.net.MulticastSocket;
 import java.net.URI;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import javax.net.ssl.SSLContext;
 
 import javax.ws.rs.core.UriBuilder;
 import org.glassfish.jersey.client.ClientConfig;
@@ -21,6 +22,8 @@ import org.glassfish.jersey.server.ResourceConfig;
 
 public class RendezVousServer {
 
+    public static final String SECRET = "secret";
+    
     //Configuration IP, listen on all IPv4 addresses on local machine
     private static final String ZERO_IP = "0.0.0.0";
     //Failure detection set to 5 seconds
@@ -42,10 +45,11 @@ public class RendezVousServer {
     private static Map<String, Long> servers;
 
     private static RendezVousResources resources;
+    
 
     public static void main(String[] args) throws Exception {
+       
         servers = new ConcurrentHashMap<>();
-
         int port = 8080;
         if (args.length > 0) {
             port = Integer.parseInt(args[0]);
@@ -53,9 +57,9 @@ public class RendezVousServer {
 
         //Setting server up
         String hostIP = InetAddress.getLocalHost().getHostAddress();
-        baseUri = UriBuilder.fromUri(String.format("http://%s/contacts", hostIP)).port(port).build();
+        baseUri = UriBuilder.fromUri(String.format("https://%s/contacts", hostIP)).port(port).build();
 
-        URI configAddr = UriBuilder.fromUri(String.format("http://%s/", ZERO_IP)).port(port).build();
+        URI configAddr = UriBuilder.fromUri(String.format("https://%s/", ZERO_IP)).port(port).build();
 
         ResourceConfig config = new ResourceConfig();
 
@@ -67,9 +71,9 @@ public class RendezVousServer {
         //Saving instance so no client is needed when calling itself on remove indexer function
         resources = new RendezVousResources();
         config.register(resources);
-        JdkHttpServerFactory.createHttpServer(configAddr, config);
+        JdkHttpServerFactory.createHttpServer(configAddr, config, SSLContext.getDefault());
 
-        System.err.println("REST RendezVous Server ready @ " + baseUri);
+        System.err.println("SSL REST RendezVous Server ready @ " + baseUri);
         //
 
         //Creating Multicast Socket

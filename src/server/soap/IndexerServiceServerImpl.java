@@ -6,6 +6,7 @@ package server.soap;
 
 import api.Document;
 import api.Endpoint;
+import api.ServerConfig;
 import api.soap.IndexerAPI;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -15,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import javax.jws.WebService;
 import javax.ws.rs.ProcessingException;
+import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.WebTarget;
@@ -63,9 +65,13 @@ public class IndexerServiceServerImpl implements IndexerAPI {
     }
 
     @Override
-    public boolean add(Document doc) throws InvalidArgumentException {
+    public boolean add(Document doc, String secret) throws InvalidArgumentException, SecurityException {
+
         if (doc == null) {
             throw new InvalidArgumentException();
+        }
+        if (server.rest.RendezVousServer.SECRET.equals(secret)) {
+            throw new SecurityException();
         }
         try {
             boolean status = storage.store(doc.id(), doc);
@@ -77,9 +83,13 @@ public class IndexerServiceServerImpl implements IndexerAPI {
     }
 
     @Override
-    public boolean remove(String id) throws InvalidArgumentException {
+    public boolean remove(String id, String secret) throws InvalidArgumentException, SecurityException {
         if (id == null) {
             throw new InvalidArgumentException();
+        }
+
+        if (server.rest.RendezVousServer.SECRET.equals(secret)) {
+            throw new SecurityException();
         }
 
         ClientConfig config = new ClientConfig();
@@ -131,7 +141,6 @@ public class IndexerServiceServerImpl implements IndexerAPI {
             }
         }
         return removed;
-
     }
 
     public void setUrl(String rendezVousURL) {
@@ -151,7 +160,7 @@ public class IndexerServiceServerImpl implements IndexerAPI {
             Service service = Service.create(wsURL, QNAME);
             IndexerAPI indexer = service.getPort(IndexerAPI.class);
             return indexer.removeDoc(id);
-        } catch (MalformedURLException | InvalidArgumentException ex) {
+        } catch (MalformedURLException e) {
             return false;
         }
     }
@@ -173,4 +182,14 @@ public class IndexerServiceServerImpl implements IndexerAPI {
         return false;
     }
 
+    @Override
+    public void configure(String secret, ServerConfig config) throws SecurityException, InvalidArgumentException {
+
+        if (secret == null || config == null) {
+            throw new InvalidArgumentException();
+        }
+        if (server.rest.RendezVousServer.SECRET.equals(secret)) {
+            throw new SecurityException();
+        }
+    }
 }

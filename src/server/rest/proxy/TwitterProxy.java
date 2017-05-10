@@ -13,6 +13,7 @@ import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
+import javax.net.ssl.SSLContext;
 import javax.ws.rs.ProcessingException;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
@@ -25,6 +26,7 @@ import org.glassfish.jersey.client.ClientConfig;
 import org.glassfish.jersey.client.ClientProperties;
 import org.glassfish.jersey.jdkhttp.JdkHttpServerFactory;
 import org.glassfish.jersey.server.ResourceConfig;
+import server.rest.IndexerServiceServer;
 
 public class TwitterProxy {
 
@@ -59,12 +61,12 @@ public class TwitterProxy {
         attributes.put("type", "rest");
 
         String hostAddress = InetAddress.getLocalHost().getHostAddress();
-        endpoint = new Endpoint(UriBuilder.fromUri(String.format("http://%s/indexer", hostAddress))
+        endpoint = new Endpoint(UriBuilder.fromUri(String.format("https://%s/indexer", hostAddress))
                 .port(PORT).build().toString(), attributes);
         //
 
         //Set up server
-        URI configURI = UriBuilder.fromUri(String.format("http://%s/", ZERO_IP)).port(PORT).build();
+        URI configURI = UriBuilder.fromUri(String.format("https://%s/", ZERO_IP)).port(PORT).build();
         //Saves config instance so can insert rendezvous address later
         //Avoids multicast requests on remove document function
         ResourceConfig config = new ResourceConfig();
@@ -76,9 +78,9 @@ public class TwitterProxy {
 
         TwitterProxyResources twitterResources = new TwitterProxyResources();
         config.register(twitterResources);
-        JdkHttpServerFactory.createHttpServer(configURI, config);
+        JdkHttpServerFactory.createHttpServer(configURI, config, SSLContext.getDefault());
 
-        System.err.println("REST TwitetrProxy Server ready @ " + endpoint.getUrl());
+        System.err.println("SSL REST TwitetrProxy Server ready @ " + endpoint.getUrl());
         //
 
         //Discovering RendezVousServer
@@ -102,6 +104,8 @@ public class TwitterProxy {
                 if (status == 204) {
                     //twitterResources.setUrl(rendezVousURL); //Sets rendezvous location on resources
                     System.err.println("Service registered succesfully");
+                    //Creating keepAlive thread
+                    new Thread(new HeartBeat()).start();
                     break;
                 }
                 System.err.println("An error occured while registering on the RendezVousServer. HTTP Error code: " + status);
@@ -112,9 +116,6 @@ public class TwitterProxy {
                 //IO error
             }
         }
-
-        //Creating keepAlive thread
-        new Thread(new HeartBeat()).start();
     }
 
     /**
@@ -126,8 +127,7 @@ public class TwitterProxy {
     private static int registerRendezVous(String url) {
 
         for (int retry = 0; retry < 3; retry++) {
-            ClientConfig config = new ClientConfig();
-            Client client = ClientBuilder.newClient(config);
+            Client client = ClientBuilder.newBuilder().hostnameVerifier(new IndexerServiceServer.InsecureHostnameVerifier()).build();
 
             rendezVousAddr = UriBuilder.fromUri(url).build();
 

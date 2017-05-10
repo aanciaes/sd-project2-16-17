@@ -25,6 +25,7 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
+import server.rest.RendezVousServer;
 
 /**
  *
@@ -64,7 +65,7 @@ public class TwitterProxyResources implements api.rest.IndexerServiceAPI {
 
     @Override
     public void configure(String secret, ServerConfig config) {
-        if (secret != secret) {
+        if (RendezVousServer.SECRET.equals(secret)) {
             throw new WebApplicationException(Response.Status.FORBIDDEN);
         }
         System.err.println(secret);
@@ -94,7 +95,7 @@ public class TwitterProxyResources implements api.rest.IndexerServiceAPI {
         JSONArray statuses = (JSONArray) jsonObject.get("statuses");
 
         List<String> ids = new ArrayList(statuses.size());
-        
+
         for (int i = 0; i < statuses.size(); i++) {
             JSONObject tweet = (JSONObject) statuses.get(i);
             ids.add(TWEET_BASE_URL + tweet.get("id"));

@@ -13,6 +13,9 @@ import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
 import javax.ws.rs.ProcessingException;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
@@ -59,12 +62,12 @@ public class IndexerServiceServer {
         attributes.put("type", "rest");
 
         String hostAddress = InetAddress.getLocalHost().getHostAddress();
-        endpoint = new Endpoint(UriBuilder.fromUri(String.format("http://%s/indexer", hostAddress))
+        endpoint = new Endpoint(UriBuilder.fromUri(String.format("https://%s/indexer", hostAddress))
                 .port(PORT).build().toString(), attributes);
         //
 
         //Set up server
-        URI configURI = UriBuilder.fromUri(String.format("http://%s/", ZERO_IP)).port(PORT).build();
+        URI configURI = UriBuilder.fromUri(String.format("https://%s/", ZERO_IP)).port(PORT).build();
         //Saves config instance so can insert rendezvous address later
         //Avoids multicast requests on remove document function
         ResourceConfig config = new ResourceConfig();
@@ -76,9 +79,9 @@ public class IndexerServiceServer {
 
         IndexerServiceResources indexerResources = new IndexerServiceResources();
         config.register(indexerResources);
-        JdkHttpServerFactory.createHttpServer(configURI, config);
+        JdkHttpServerFactory.createHttpServer(configURI, config, SSLContext.getDefault());
 
-        System.err.println("REST IndexerService Server ready @ " + endpoint.getUrl());
+        System.err.println("SSL REST IndexerService Server ready @ " + endpoint.getUrl());
         //
 
         //Discovering RendezVousServer
@@ -102,6 +105,8 @@ public class IndexerServiceServer {
                 if (status == 204) {
                     indexerResources.setUrl(rendezVousURL); //Sets rendezvous location on resources
                     System.err.println("Service registered succesfully");
+                    //Creating keepAlive thread
+                    new Thread(new HeartBeat()).start();
                     break;
                 }
                 System.err.println("An error occured while registering on the RendezVousServer. HTTP Error code: " + status);
@@ -112,9 +117,6 @@ public class IndexerServiceServer {
                 //IO error
             }
         }
-
-        //Creating keepAlive thread
-        new Thread(new HeartBeat()).start();
     }
 
     /**
@@ -126,8 +128,7 @@ public class IndexerServiceServer {
     private static int registerRendezVous(String url) {
 
         for (int retry = 0; retry < 3; retry++) {
-            ClientConfig config = new ClientConfig();
-            Client client = ClientBuilder.newClient(config);
+            Client client = ClientBuilder.newBuilder().hostnameVerifier(new InsecureHostnameVerifier()).build();
 
             rendezVousAddr = UriBuilder.fromUri(url).build();
 
@@ -194,4 +195,13 @@ public class IndexerServiceServer {
             }
         }
     }
+
+    static public class InsecureHostnameVerifier implements HostnameVerifier {
+
+        @Override
+        public boolean verify(String string, SSLSession ssls) {
+            return true;
+        }
+    }
+
 }
