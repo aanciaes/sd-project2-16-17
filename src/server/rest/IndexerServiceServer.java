@@ -135,7 +135,7 @@ public class IndexerServiceServer {
             WebTarget target = client.target(rendezVousAddr);
 
             try {
-                Response response = target.path("/" + endpoint.generateId())
+                Response response = target.path("/" + endpoint.generateId()).queryParam("secret",RendezVousServer.SECRET)
                         .request()
                         .post(Entity.entity(endpoint, MediaType.APPLICATION_JSON));
                 return response.getStatus();

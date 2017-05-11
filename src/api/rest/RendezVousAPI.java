@@ -9,10 +9,10 @@ import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
-import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 
 /**
@@ -26,7 +26,7 @@ public interface RendezVousAPI {
      */
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    Endpoint[] endpoints();
+    public Endpoint[] endpoints();
 
     /**
      * Regista novo servidor.
@@ -34,20 +34,12 @@ public interface RendezVousAPI {
     @POST
     @Path("/{id}")
     @Consumes(MediaType.APPLICATION_JSON)
-    void register(@PathParam("id") String id, Endpoint endpoint);
-
-    /**
-     * Updates an existing server
-     */
-    @PUT
-    @Path("/{id}")
-    @Consumes(MediaType.APPLICATION_JSON)
-    public void update(@PathParam("id") String id, Endpoint endpoint);
+    public void register( @PathParam("id") String id, @QueryParam("secret") String secret, Endpoint endpoint);
 
     /**
      * De-regista servidor, dado o seu id.
      */
     @DELETE
     @Path("/{id}")
-    void unregister(@PathParam("id") String id);
+    public void unregister(@PathParam("id") String id, @QueryParam("secret") String secret);
 }

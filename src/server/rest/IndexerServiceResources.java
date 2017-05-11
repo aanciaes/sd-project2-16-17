@@ -28,7 +28,6 @@ import static javax.ws.rs.core.Response.Status.CONFLICT;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 import javax.xml.namespace.QName;
 import javax.xml.ws.Service;
-import org.glassfish.jersey.client.ClientConfig;
 import sys.storage.LocalVolatileStorage;
 
 /**
@@ -164,7 +163,7 @@ public class IndexerServiceResources implements IndexerServiceAPI {
             try {
                 Client client = ClientBuilder.newBuilder().hostnameVerifier(new IndexerServiceServer.InsecureHostnameVerifier()).build();
                 WebTarget newTarget = client.target(url);
-                Response response = newTarget.path("/remove/" + id).request().delete();
+                Response response = newTarget.path("/remove/" + id).queryParam("secret",RendezVousServer.SECRET).request().delete();
 
                 return response.getStatus() == 204;
             } catch (ProcessingException x) {

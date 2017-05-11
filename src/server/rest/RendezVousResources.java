@@ -11,6 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import javax.ws.rs.WebApplicationException;
 
 import api.rest.RendezVousAPI;
+import javax.ws.rs.core.Response;
 
 import static javax.ws.rs.core.Response.Status.*;
 
@@ -27,8 +28,12 @@ public class RendezVousResources implements RendezVousAPI {
     }
 
     @Override
-    public void register(String id, Endpoint endpoint) {
+    public void register(String id, String secret, Endpoint endpoint) {
         System.err.printf("register: %s <%s>\n", id, endpoint);
+
+        if (RendezVousServer.SECRET.equals(secret)) {
+            throw new WebApplicationException(Response.Status.FORBIDDEN);
+        }
 
         if (db.containsKey(id)) {
             throw new WebApplicationException(CONFLICT);
@@ -38,19 +43,12 @@ public class RendezVousResources implements RendezVousAPI {
     }
 
     @Override
-    public void update(String id, Endpoint endpoint) {
-        System.err.printf("update: %s <%s>\n", id, endpoint);
-
-        if (!db.containsKey(id)) {
-            throw new WebApplicationException(NOT_FOUND);
-        } else {
-            db.put(id, endpoint);
-        }
-    }
-
-    @Override
-    public void unregister(String id) {
+    public void unregister(String id, String secret) {
         System.err.printf("deleting: %s\n", id);
+
+        if (RendezVousServer.SECRET.equals(secret)) {
+            throw new WebApplicationException(Response.Status.FORBIDDEN);
+        }
 
         if (!db.containsKey(id)) {
             throw new WebApplicationException(NOT_FOUND);

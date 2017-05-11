@@ -185,7 +185,7 @@ public class RendezVousServer {
         private static void deleteServer(String key) {
             servers.remove(key);
 
-            resources.unregister(key);
+            resources.unregister(key, SECRET);
 
             /**
              * for (int retry = 0; retry < 3; retry++) {
