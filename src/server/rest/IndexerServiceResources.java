@@ -162,8 +162,8 @@ public class IndexerServiceResources implements IndexerServiceAPI {
         for (int retry = 0; retry < 3; retry++) {
             try {
                 Client client = ClientBuilder.newBuilder().hostnameVerifier(new IndexerServiceServer.InsecureHostnameVerifier()).build();
-                WebTarget newTarget = client.target(url);
-                Response response = newTarget.path("/remove/" + id).queryParam("secret",RendezVousServer.SECRET).request().delete();
+                WebTarget target = client.target(url);
+                Response response = target.path("/remove/" + id).request().delete();
 
                 return response.getStatus() == 204;
             } catch (ProcessingException x) {
