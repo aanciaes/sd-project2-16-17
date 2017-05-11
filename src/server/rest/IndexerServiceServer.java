@@ -51,7 +51,7 @@ public class IndexerServiceServer {
     private static Endpoint endpoint;
     //Rendezvous address
     private static URI rendezVousAddr;
-
+    
     public static void main(String[] args) throws Exception {
         if (args.length > 0) {
             rendezVousAddr = UriBuilder.fromUri(args[0]).build();

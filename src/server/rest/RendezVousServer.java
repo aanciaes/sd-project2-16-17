@@ -38,18 +38,18 @@ public class RendezVousServer {
     private static final int CONNECT_TIMEOUT = 1000;
     private static final int READ_TIMEOUT = 1000;
 
-    //base url of this server - contains "http", ip address, port and base path
+    //base url of this server - contains "https", ip address, port and base path
     private static URI baseUri;
 
     //Failure detection map
     private static Map<String, Long> servers;
-
+    
     private static RendezVousResources resources;
     
 
     public static void main(String[] args) throws Exception {
        
-        servers = new ConcurrentHashMap<>();
+        servers = new ConcurrentHashMap<>(); 
         int port = 8080;
         if (args.length > 0) {
             port = Integer.parseInt(args[0]);
