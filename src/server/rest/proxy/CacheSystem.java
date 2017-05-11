@@ -11,13 +11,14 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class CacheSystem implements Cache {
 
-    public static final long MINUTE = 60000;
+    public static final long MINUTE = 5000;
 
     //Storing pictures
     private Map<String, CacheObject> tweets;
 
     public CacheSystem() {
         tweets = new ConcurrentHashMap();
+        new Thread (new updateCache()).start();
     }
 
     @Override
@@ -32,16 +33,17 @@ public class CacheSystem implements Cache {
 
     @Override
     public void store(String keywords, List<String> tweets) {
-        if (inCache(keywords)) {
-            this.tweets.get(keywords).hit();
-        } else {
-            this.tweets.put(keywords, new CacheObject(keywords, tweets, System.currentTimeMillis()));
-        }
+        this.tweets.put(keywords, new CacheObject(keywords, tweets, System.currentTimeMillis()));
+
     }
 
     @Override
     public void updateCache() {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        tweets.forEach((k, v) -> {
+            if (System.currentTimeMillis() - v.getFirstAccess() > MINUTE) {
+                delete(k);
+            }
+        });
     }
 
     @Override
@@ -54,13 +56,13 @@ public class CacheSystem implements Cache {
         private final String keywords;
         private final List<String> tweets;
         private int hits;
-        private Long lastAccess;
+        private Long firstAccess;
 
-        public CacheObject(String keywords, List<String> tweets, Long lastAccess) {
+        public CacheObject(String keywords, List<String> tweets, Long firstAccess) {
             this.keywords = keywords;
             this.tweets = tweets;
             hits = 1;
-            this.lastAccess = lastAccess;
+            this.firstAccess = firstAccess;
         }
 
         public String getKeywords() {
@@ -75,13 +77,32 @@ public class CacheSystem implements Cache {
             return hits;
         }
 
-        public Long getLastAccess() {
-            return lastAccess;
+        public Long getFirstAccess() {
+            return firstAccess;
         }
 
         public void hit() {
             hits++;
-            this.lastAccess = System.currentTimeMillis();
+            //this.lastAccess = System.currentTimeMillis();
+        }
+    }
+    
+    /**
+     * Thread class that handles the heartbeat system
+     */
+    class updateCache implements Runnable {
+
+        @Override
+        public void run() {
+            while (true) {
+
+                try {
+                   updateCache();
+                   Thread.sleep(3000);
+                } catch (InterruptedException ex) {
+                    //Some error occured
+                }
+            }
         }
     }
 }
