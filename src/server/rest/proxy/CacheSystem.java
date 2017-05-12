@@ -13,7 +13,7 @@ public class CacheSystem implements Cache {
 
     public static final long MINUTE = 5000;
 
-    //Storing pictures
+    //Storing tweets
     private Map<String, CacheObject> tweets;
 
     public CacheSystem() {
