@@ -82,7 +82,7 @@
 									<targetPath>/home/sd</targetPath>
 									<directory>${basedir}</directory>
 									<include>server.jks</include>
-									<include>client.jks</include>
+									<include>client-base.jks</include>
 								</resource>
 							</resources>
 						</configuration>

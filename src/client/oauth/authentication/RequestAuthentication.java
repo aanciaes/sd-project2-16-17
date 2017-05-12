@@ -20,7 +20,7 @@ import javax.ws.rs.client.Entity;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import org.glassfish.jersey.client.ClientConfig;
+import server.rest.IndexerServiceServer;
 /**
  *
  * @author miguel
@@ -32,7 +32,7 @@ public class RequestAuthentication {
 
     public static void main(String... args) {
         try {
-            String url = "http://172.17.0.3:8081/indexer";
+            String url = "https://172.17.0.2:8081/indexer";
             if (args.length > 0) {
                 url = args[0];
             }
@@ -56,6 +56,7 @@ public class RequestAuthentication {
             System.out.println("e copiar o codigo obtido para aqui:");
             System.out.print(">>");
             final String code = in.nextLine();
+            in.close();
 
             // Trade the Request Token and Verifier for the Access Token
             System.out.println("A obter o Access Token!");
@@ -71,8 +72,7 @@ public class RequestAuthentication {
             
             for (int retry = 0; retry < 3; retry++) {
                 try {
-                    ClientConfig config = new ClientConfig();
-                    Client client = ClientBuilder.newClient(config);
+                   Client client = ClientBuilder.newBuilder().hostnameVerifier(new IndexerServiceServer.InsecureHostnameVerifier()).build();
                     WebTarget target = client.target(url);
                     Response response = target.path("/configure").queryParam("secret", SECRET)
                             .request()

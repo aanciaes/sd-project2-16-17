@@ -38,24 +38,35 @@ public class TwitterProxyResources implements api.rest.IndexerServiceAPI {
     private static final String ENCODING = "UTF-8";
 
     ServerConfig serverConfig;
+    CacheSystem cache = new CacheSystem();
 
     @Override
     public List<String> search(String keywords) {
         try {
-            final OAuth10aService service = new ServiceBuilder().apiKey(serverConfig.getApiKey()).apiSecret(serverConfig.getApuSecret())
-                    .build(TwitterApi.instance());
+            if (!cache.inCache(keywords)) {
 
-            OAuth1AccessToken accessToken = new OAuth1AccessToken(serverConfig.getToken(), serverConfig.getTokenSecret());
+                final OAuth10aService service = new ServiceBuilder().apiKey(serverConfig.getApiKey()).apiSecret(serverConfig.getApuSecret())
+                        .build(TwitterApi.instance());
 
-            OAuthRequest req = new OAuthRequest(Verb.GET,
-                    SEARCH_API_TWITTER_BASE_URL + URLEncoder.encode(keywords, ENCODING));
-            service.signRequest(accessToken, req);
-            final com.github.scribejava.core.model.Response res = service.execute(req);
+                OAuth1AccessToken accessToken = new OAuth1AccessToken(serverConfig.getToken(), serverConfig.getTokenSecret());
 
-            System.err.println("URL: " + req.getCompleteUrl());
-            System.err.println("REST code:" + res.getCode());
+                OAuthRequest req = new OAuthRequest(Verb.GET,
+                        SEARCH_API_TWITTER_BASE_URL + URLEncoder.encode(keywords, ENCODING));
+                service.signRequest(accessToken, req);
+                final com.github.scribejava.core.model.Response res = service.execute(req);
 
-            return parseJson(res.getBody());
+                System.err.println("URL: " + req.getCompleteUrl());
+                System.err.println("REST code:" + res.getCode());
+
+                List<String> tweets = parseJson(res.getBody());
+                cache.store(keywords, tweets);
+                
+                System.err.println("Cache miss");
+                return tweets;
+            }else{
+                System.err.println("Cache hit");
+                return cache.getTweets(keywords);
+            }
 
         } catch (IOException | InterruptedException | ExecutionException | ParseException ex) {
             ex.printStackTrace();
@@ -65,12 +76,10 @@ public class TwitterProxyResources implements api.rest.IndexerServiceAPI {
 
     @Override
     public void configure(String secret, ServerConfig config) {
-        if (RendezVousServer.SECRET.equals(secret)) {
+        if (!RendezVousServer.SECRET.equals(secret)) {
             throw new WebApplicationException(Response.Status.FORBIDDEN);
         }
-        System.err.println(secret);
         serverConfig = config;
-        System.err.println(serverConfig.getApiKey());
     }
 
     @Override
