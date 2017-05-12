@@ -12,6 +12,8 @@ import java.net.URI;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.net.ssl.SSLContext;
+import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.Response;
 
 import javax.ws.rs.core.UriBuilder;
 import org.glassfish.jersey.client.ClientConfig;
@@ -23,7 +25,7 @@ import org.glassfish.jersey.server.ResourceConfig;
 public class RendezVousServer {
 
     public static final String SECRET = "secret";
-    
+
     //Configuration IP, listen on all IPv4 addresses on local machine
     private static final String ZERO_IP = "0.0.0.0";
     //Failure detection set to 5 seconds
@@ -43,13 +45,12 @@ public class RendezVousServer {
 
     //Failure detection map
     private static Map<String, Long> servers;
-    
+
     private static RendezVousResources resources;
-    
 
     public static void main(String[] args) throws Exception {
-       
-        servers = new ConcurrentHashMap<>(); 
+
+        servers = new ConcurrentHashMap<>();
         int port = 8080;
         if (args.length > 0) {
             port = Integer.parseInt(args[0]);
@@ -118,7 +119,7 @@ public class RendezVousServer {
                 multicastMessage(response, socket);
                 break;
             case KEEPALIVE_MESSAGE:
-                keepAliveMessage(split[1]);
+                keepAliveMessage(split[1], split[2]);
                 break;
             default:    //Ignore message
                 break;
@@ -152,8 +153,10 @@ public class RendezVousServer {
      *
      * @param id Endpoint ID
      */
-    private static void keepAliveMessage(String id) {
-        servers.put(id, System.currentTimeMillis());
+    private static void keepAliveMessage(String id, String key) {
+        if (resources.checkAccess(id, key)) {
+            servers.put(id, System.currentTimeMillis());
+        }
     }
 
     /**

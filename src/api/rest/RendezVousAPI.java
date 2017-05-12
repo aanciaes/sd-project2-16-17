@@ -5,6 +5,7 @@
 package api.rest;
 
 import api.Endpoint;
+import api.SecureKeys;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
@@ -27,6 +28,11 @@ public interface RendezVousAPI {
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public Endpoint[] endpoints();
+    
+    @GET
+    @Path("/requestAccess/{id}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public SecureKeys requestAccess(@PathParam("id") String id);
 
     /**
      * Regista novo servidor.

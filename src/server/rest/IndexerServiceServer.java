@@ -5,6 +5,7 @@
 package server.rest;
 
 import api.Endpoint;
+import api.SecureKeys;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
@@ -51,6 +52,8 @@ public class IndexerServiceServer {
     private static Endpoint endpoint;
     //Rendezvous address
     private static URI rendezVousAddr;
+    
+    private static SecureKeys secureKeys;
     
     public static void main(String[] args) throws Exception {
         if (args.length > 0) {
@@ -135,7 +138,10 @@ public class IndexerServiceServer {
             WebTarget target = client.target(rendezVousAddr);
 
             try {
-                Response response = target.path("/" + endpoint.generateId()).queryParam("secret",RendezVousServer.SECRET)
+                secureKeys = target.path("/requestAccess/" + endpoint.generateId())
+                        .request().accept(MediaType.APPLICATION_JSON).get(SecureKeys.class);
+                
+                Response response = target.path("/" + endpoint.generateId()).queryParam("secret",secureKeys.getPrivateKey())
                         .request()
                         .post(Entity.entity(endpoint, MediaType.APPLICATION_JSON));
                 return response.getStatus();
@@ -183,7 +189,7 @@ public class IndexerServiceServer {
                     MulticastSocket socket = new MulticastSocket();
                     //heartbeat message identifier + sender endpoint id
                     //Identifiyng the sender of the message
-                    String message = HEARTBEAT_MESSAGE + "/" + endpoint.generateId();
+                    String message = HEARTBEAT_MESSAGE + "/" + endpoint.generateId() + "/" + secureKeys.getPrivateKey();
 
                     sendMulticastPacket(socket, message);
 
