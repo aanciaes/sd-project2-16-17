@@ -56,7 +56,7 @@ public class CacheSystem implements Cache {
         private final String keywords;
         private final List<String> tweets;
         private int hits;
-        private Long firstAccess;
+        private final Long firstAccess;
 
         public CacheObject(String keywords, List<String> tweets, Long firstAccess) {
             this.keywords = keywords;
@@ -88,7 +88,7 @@ public class CacheSystem implements Cache {
     }
     
     /**
-     * Thread class that handles the heartbeat system
+     * Thread class that deletes old objects from cache
      */
     class updateCache implements Runnable {
 
