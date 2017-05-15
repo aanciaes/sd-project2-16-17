@@ -16,7 +16,6 @@ import java.util.List;
 import java.util.Map;
 import javax.jws.WebService;
 import javax.ws.rs.ProcessingException;
-import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.WebTarget;
@@ -70,7 +69,7 @@ public class IndexerServiceServerImpl implements IndexerAPI {
         if (doc == null) {
             throw new InvalidArgumentException();
         }
-        if (server.rest.RendezVousServer.SECRET.equals(secret)) {
+        if (!server.rest.RendezVousServer.SECRET.equals(secret)) {
             throw new SecurityException();
         }
         try {
@@ -88,7 +87,7 @@ public class IndexerServiceServerImpl implements IndexerAPI {
             throw new InvalidArgumentException();
         }
 
-        if (server.rest.RendezVousServer.SECRET.equals(secret)) {
+        if (!server.rest.RendezVousServer.SECRET.equals(secret)) {
             throw new SecurityException();
         }
 
@@ -188,7 +187,7 @@ public class IndexerServiceServerImpl implements IndexerAPI {
         if (secret == null || config == null) {
             throw new InvalidArgumentException();
         }
-        if (server.rest.RendezVousServer.SECRET.equals(secret)) {
+        if (!server.rest.RendezVousServer.SECRET.equals(secret)) {
             throw new SecurityException();
         }
     }

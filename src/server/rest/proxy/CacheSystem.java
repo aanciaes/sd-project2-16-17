@@ -11,7 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class CacheSystem implements Cache {
 
-    public static final long MINUTE = 5000;
+    public static final long TTL = 10000;
 
     //Storing tweets
     private Map<String, CacheObject> tweets;
@@ -40,7 +40,7 @@ public class CacheSystem implements Cache {
     @Override
     public void updateCache() {
         tweets.forEach((k, v) -> {
-            if (System.currentTimeMillis() - v.getFirstAccess() > MINUTE) {
+            if (System.currentTimeMillis() - v.getFirstAccess() > TTL) {
                 delete(k);
             }
         });
@@ -83,7 +83,6 @@ public class CacheSystem implements Cache {
 
         public void hit() {
             hits++;
-            //this.lastAccess = System.currentTimeMillis();
         }
     }
     

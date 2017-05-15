@@ -64,7 +64,7 @@ public class IndexerServiceResources implements IndexerServiceAPI {
     @Override
     public void add(String id, String secret, Document doc) {
 
-        if (RendezVousServer.SECRET.equals(secret)) {
+        if (!RendezVousServer.SECRET.equals(secret)) {
             throw new WebApplicationException(Response.Status.FORBIDDEN);
         }
         
@@ -78,7 +78,7 @@ public class IndexerServiceResources implements IndexerServiceAPI {
 
     @Override
     public void remove(String id, String secret) {
-        if (RendezVousServer.SECRET.equals(secret)) {
+        if (!RendezVousServer.SECRET.equals(secret)) {
             throw new WebApplicationException(Response.Status.FORBIDDEN);
         }
         //Getting all indexers registered in rendezvous 
@@ -177,7 +177,7 @@ public class IndexerServiceResources implements IndexerServiceAPI {
     @Override
     public void configure(String secret, ServerConfig config) {
         //Do nothing, return success code
-        if (RendezVousServer.SECRET.equals(secret)) {
+        if (!RendezVousServer.SECRET.equals(secret)) {
             throw new WebApplicationException(Response.Status.FORBIDDEN);
         }
     }
