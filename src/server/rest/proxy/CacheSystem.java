@@ -11,7 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class CacheSystem implements Cache {
 
-    public static final long TTL = 10000;
+    private static final long TTL = 10000;
 
     //Storing tweets
     private Map<String, CacheObject> tweets;

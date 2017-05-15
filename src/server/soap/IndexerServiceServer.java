@@ -4,14 +4,21 @@
  */
 package server.soap;
 
+import com.sun.net.httpserver.HttpContext;
+import com.sun.net.httpserver.HttpsConfigurator;
+import com.sun.net.httpserver.HttpsServer;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.MulticastSocket;
 import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
 import javax.ws.rs.ProcessingException;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
@@ -21,7 +28,6 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriBuilder;
 import javax.xml.ws.Endpoint;
-import org.glassfish.jersey.client.ClientConfig;
 
 /**
  *
@@ -55,24 +61,34 @@ public class IndexerServiceServer {
 
         //Set server type
         String hostIP = InetAddress.getLocalHost().getHostAddress();
-        String hostAddress = UriBuilder.fromUri(String.format("http://%s/indexer", hostIP)).port(port).build().toString();
+        String hostAddress = UriBuilder.fromUri(String.format("https://%s/indexer", hostIP)).port(port).build().toString();
 
         Map<String, Object> attributes = new HashMap<>();
         attributes.put("type", "soap");
         endpoint = new api.Endpoint(hostAddress, attributes);
 
-        //Set up Server
-        String configURI = String.format("http://%s:%d/indexer", ZERO_IP, port);
+//        //Set up Server
+//        String configURI = String.format("https://%s:%d/indexer", ZERO_IP, port);
 
         //set timeouts
         System.setProperty("javax.xml.ws.client.connectionTimeout", SOAP_CONN_TIMEOUT);
         System.setProperty("javax.xml.ws.client.receiveTimeout", SOAP_RECV_TIMEOUT);
+
+        // Create the HTTPS server using the ssl context.
+        HttpsConfigurator configurator = new HttpsConfigurator(SSLContext.getDefault());
+        HttpsServer httpsServer = HttpsServer.create(new InetSocketAddress(ZERO_IP, port), -1);
+        httpsServer.setHttpsConfigurator(configurator);
+        HttpContext httpContext = httpsServer.createContext("/indexer");
+        httpsServer.start();
+
         //Saves config instance so can insert rendezvous address later
         //Avoids multicast requests on remove document function
         IndexerServiceServerImpl indexerServiceImpl = new IndexerServiceServerImpl();
-        Endpoint.publish(configURI, indexerServiceImpl);
+        
+        Endpoint ed = Endpoint.create(indexerServiceImpl);
+        ed.publish(httpContext);
         //
-        System.err.println("SOAP IndexerService Server ready @ " + endpoint.getUrl());
+        System.err.println("SOAP SSL IndexerService Server ready @ " + endpoint.getUrl());
 
         //Discovering RendezVousServer
         //Setting up multicast request.
@@ -112,21 +128,27 @@ public class IndexerServiceServer {
         new Thread(new HeartBeat()).start();
     }
 
-    private static int registerRendezVous(String rendezVousURL) {
+    /**
+     * Tries to register this endpoint on rendezvous server
+     *
+     * @param url rendezvous location
+     * @return return http message or 0 if some error occured
+     */
+    private static int registerRendezVous(String url) {
 
         for (int retry = 0; retry < 3; retry++) {
+            Client client = ClientBuilder.newBuilder().hostnameVerifier(new InsecureHostnameVerifier()).build();
 
-            ClientConfig config = new ClientConfig();
-            Client client = ClientBuilder.newClient(config);
-            rendezVousAddr = UriBuilder.fromUri(rendezVousURL).build();
+            rendezVousAddr = UriBuilder.fromUri(url).build();
 
             WebTarget target = client.target(rendezVousAddr);
 
             try {
-                Response response = target.path("/" + endpoint.generateId())
+                Response response = target.path("/" + endpoint.generateId()).queryParam("secret",server.rest.RendezVousServer.SECRET)
                         .request()
                         .post(Entity.entity(endpoint, MediaType.APPLICATION_JSON));
                 return response.getStatus();
+
             } catch (ProcessingException ex) {
                 //
             }
@@ -178,4 +200,11 @@ public class IndexerServiceServer {
         }
     }
 
+    static public class InsecureHostnameVerifier implements HostnameVerifier {
+		@Override
+		public boolean verify(String hostname, SSLSession session) {
+			return true;
+		}
+	}
+    
 }
