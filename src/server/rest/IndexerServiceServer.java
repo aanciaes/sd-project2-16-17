@@ -122,7 +122,7 @@ public class IndexerServiceServer {
             } catch (SocketTimeoutException e) {
                 //No server responded within given time
                 if (retry == 2) {
-                    System.err.println("An error occured while registering on the RendezVousServer. Server Timed out");
+                    System.err.println("An error occured while registering on the RendezVousServer. Server did not responded in time");
                     System.exit(1);
                 }
             } catch (IOException ex) {
