@@ -37,7 +37,7 @@ public class IndexerServiceServerImpl implements IndexerAPI {
     private final LocalVolatileStorage storage = new LocalVolatileStorage(); //Documents "database"
     private String rendezUrl; //RendezVous location
 
-    private static final String KEYWORD_SPLIT = "\\+";
+    private static final String KEYWORD_SPLIT = "[ \\+]";
     private static final int SUCCESS_NOCONTENT = 204;
 
     @Override

@@ -38,12 +38,13 @@ public class IndexerServiceResources implements IndexerServiceAPI {
 
     private final LocalVolatileStorage storage = new LocalVolatileStorage();
     private String rendezUrl; //rebdezvous location
+    private static final String KEYWORD_SPLIT = "[ \\+]";
 
     @Override
     public List<String> search(String keywords) {
 
         //split query words
-        String[] words = keywords.split("\\+");
+        String[] words = keywords.split(KEYWORD_SPLIT);
 
         //Convert to List
         List<String> wordsLst = Arrays.asList(words);

@@ -187,23 +187,6 @@ public class RendezVousServer {
 
             resources.unregister(key, SECRET);
 
-            /**
-             * for (int retry = 0; retry < 3; retry++) {
-             *
-             * ClientConfig config = new ClientConfig(); Client client =
-             * ClientBuilder.newClient(config);
-             *
-             * URI rendezVousAddr = UriBuilder.fromUri(baseUri).build();
-             *
-             * WebTarget target = client.target(rendezVousAddr);
-             *
-             * try {
-             *
-             * Response response = target.path("/" + key) .request() .delete();
-             * if (response.getStatus() == HTTP_SUCCESS_NOCONTENT) { break; }
-             *
-             * } catch (ProcessingException ex) { //retry } }
-             */
         }
     }
 }
