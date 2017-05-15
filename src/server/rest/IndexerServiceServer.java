@@ -35,6 +35,8 @@ public class IndexerServiceServer {
     private static final String ZERO_IP = "0.0.0.0";
     private static final int PORT = 8081;
 
+    private static String SECRET = "secret";
+
     //Multicast address, port and message
     private static final String MULTICAST_ADDRESS = "238.69.69.69";
     private static final int MULTICAST_PORT = 6969;
@@ -51,10 +53,13 @@ public class IndexerServiceServer {
     private static Endpoint endpoint;
     //Rendezvous address
     private static URI rendezVousAddr;
-    
+
     public static void main(String[] args) throws Exception {
         if (args.length > 0) {
             rendezVousAddr = UriBuilder.fromUri(args[0]).build();
+            if (args.length > 1) {
+                SECRET = args[1];
+            }
         }
 
         //Create endpoint
@@ -102,19 +107,30 @@ public class IndexerServiceServer {
                 String rendezVousURL = new String(url_packet.getData(), 0, url_packet.getLength());
 
                 int status = registerRendezVous(rendezVousURL);
-                if (status == 204) {
-                    indexerResources.setUrl(rendezVousURL); //Sets rendezvous location on resources
-                    System.err.println("Service registered succesfully");
-                    //Creating keepAlive thread
-                    new Thread(new HeartBeat()).start();
-                    break;
+                if (status != 0) {
+                    if (status == 204) {
+                        indexerResources.setUrl(rendezVousURL); //Sets rendezvous location on resources
+                        System.err.println("Service registered succesfully");
+                        //Creating keepAlive thread
+                        new Thread(new HeartBeat()).start();
+                        break;
+                    }
+                    System.err.println("An error occured while registering on the RendezVousServer. HTTP Error code: " + status);
+                    System.exit(1);
                 }
-                System.err.println("An error occured while registering on the RendezVousServer. HTTP Error code: " + status);
 
             } catch (SocketTimeoutException e) {
                 //No server responded within given time
+                if (retry == 2) {
+                    System.err.println("An error occured while registering on the RendezVousServer. Server Timed out");
+                    System.exit(1);
+                }
             } catch (IOException ex) {
                 //IO error
+                if (retry == 2) {
+                    System.err.println("An error occured while registering on the RendezVousServer.");
+                    System.exit(1);
+                }
             }
         }
     }
@@ -135,7 +151,7 @@ public class IndexerServiceServer {
             WebTarget target = client.target(rendezVousAddr);
 
             try {
-                Response response = target.path("/" + endpoint.generateId()).queryParam("secret",RendezVousServer.SECRET)
+                Response response = target.path("/" + endpoint.generateId()).queryParam("secret", SECRET)
                         .request()
                         .post(Entity.entity(endpoint, MediaType.APPLICATION_JSON));
                 return response.getStatus();

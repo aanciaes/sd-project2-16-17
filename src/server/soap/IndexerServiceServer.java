@@ -102,30 +102,44 @@ public class IndexerServiceServer {
 
         //Send multicast request with MESSAGE - Send up to three times
         for (int retry = 0; retry < 3; retry++) {
-            sendMulticastPacket(socket, MESSAGE);
-
-            byte[] buffer = new byte[65536];
-            DatagramPacket url_packet = new DatagramPacket(buffer, buffer.length);
-            socket.setSoTimeout(TIMEOUT);
 
             try {
+                sendMulticastPacket(socket, MESSAGE);
+
+                byte[] buffer = new byte[65536];
+                DatagramPacket url_packet = new DatagramPacket(buffer, buffer.length);
+                socket.setSoTimeout(TIMEOUT);
+
                 socket.receive(url_packet);
                 String rendezVousURL = new String(url_packet.getData(), 0, url_packet.getLength());
 
                 int status = registerRendezVous(rendezVousURL);
-                if (status == 204) {
-                    indexerServiceImpl.setUrl(rendezVousURL);
-                    System.err.println("Service registered succesfully");
-                    break;
+                if (status != 0) {
+                    if (status == 204) {
+                        indexerServiceImpl.setUrl(rendezVousURL); //Sets rendezvous location on resources
+                        System.err.println("Service registered succesfully");
+                        //Creating keepAlive thread
+                        new Thread(new HeartBeat()).start();
+                        break;
+                    }
+                    System.err.println("An error occured while registering on the RendezVousServer. HTTP Error code: " + status);
+                    System.exit(1);
                 }
-                System.err.println("An error occured while registering on the RendezVousServer. HTTP Error code: " + status);
 
             } catch (SocketTimeoutException e) {
                 //No server responded within given time
+                if (retry == 2) {
+                    System.err.println("An error occured while registering on the RendezVousServer. Server Timed out");
+                    System.exit(1);
+                }
+            } catch (IOException ex) {
+                //IO error
+                if (retry == 2) {
+                    System.err.println("An error occured while registering on the RendezVousServer.");
+                    System.exit(1);
+                }
             }
         }
-
-        new Thread(new HeartBeat()).start();
     }
 
     /**

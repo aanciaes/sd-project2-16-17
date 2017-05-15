@@ -22,7 +22,7 @@ import org.glassfish.jersey.server.ResourceConfig;
 
 public class RendezVousServer {
 
-    public static final String SECRET = "secret";
+    public static String SECRET = "secret";
     
     //Configuration IP, listen on all IPv4 addresses on local machine
     private static final String ZERO_IP = "0.0.0.0";
@@ -52,7 +52,7 @@ public class RendezVousServer {
         servers = new ConcurrentHashMap<>(); 
         int port = 8080;
         if (args.length > 0) {
-            port = Integer.parseInt(args[0]);
+            SECRET=args[0];
         }
 
         //Setting server up
