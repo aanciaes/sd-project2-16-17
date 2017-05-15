@@ -42,6 +42,9 @@ public class TwitterProxyResources implements api.rest.IndexerServiceAPI {
 
     @Override
     public List<String> search(String keywords) {
+        if(serverConfig==null)
+            throw new WebApplicationException(Status.FORBIDDEN);
+        
         try {
             if (!cache.inCache(keywords)) {
 
