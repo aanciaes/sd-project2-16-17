@@ -27,6 +27,7 @@ import org.glassfish.jersey.client.ClientProperties;
 import org.glassfish.jersey.jdkhttp.JdkHttpServerFactory;
 import org.glassfish.jersey.server.ResourceConfig;
 import server.rest.IndexerServiceServer;
+import static server.rest.RendezVousServer.SECRET;
 
 public class TwitterProxy {
 
@@ -134,13 +135,13 @@ public class TwitterProxy {
             WebTarget target = client.target(rendezVousAddr);
 
             try {
-                Response response = target.path("/" + endpoint.generateId())
+                Response response = target.path("/" + endpoint.generateId()).queryParam("secret", SECRET)
                         .request()
                         .post(Entity.entity(endpoint, MediaType.APPLICATION_JSON));
                 return response.getStatus();
 
             } catch (ProcessingException ex) {
-                //
+                ex.printStackTrace();
             }
         }
         return 0;

@@ -31,7 +31,7 @@ public class RendezVousResources implements RendezVousAPI {
     public void register(String id, String secret, Endpoint endpoint) {
         System.err.printf("register: %s <%s>\n", id, endpoint);
 
-        if (RendezVousServer.SECRET.equals(secret)) {
+        if (!RendezVousServer.SECRET.equals(secret)) {
             throw new WebApplicationException(Response.Status.FORBIDDEN);
         }
 
@@ -46,7 +46,7 @@ public class RendezVousResources implements RendezVousAPI {
     public void unregister(String id, String secret) {
         System.err.printf("deleting: %s\n", id);
 
-        if (RendezVousServer.SECRET.equals(secret)) {
+        if (!RendezVousServer.SECRET.equals(secret)) {
             throw new WebApplicationException(Response.Status.FORBIDDEN);
         }
 
