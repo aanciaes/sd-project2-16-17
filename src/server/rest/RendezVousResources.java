@@ -70,6 +70,7 @@ public class RendezVousResources implements RendezVousAPI {
 
     @Override
     public SecureKeys requestAccess(String id) {
+        System.err.println("REQUEST ACCESS");
         if(keys.containsKey(id)){
             throw new WebApplicationException(CONFLICT);
         }else{

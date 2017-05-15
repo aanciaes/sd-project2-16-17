@@ -12,8 +12,6 @@ import java.net.URI;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.net.ssl.SSLContext;
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.core.Response;
 
 import javax.ws.rs.core.UriBuilder;
 import org.glassfish.jersey.client.ClientConfig;

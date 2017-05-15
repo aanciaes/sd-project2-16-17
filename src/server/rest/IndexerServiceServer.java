@@ -138,8 +138,11 @@ public class IndexerServiceServer {
             WebTarget target = client.target(rendezVousAddr);
 
             try {
+                 System.err.println("HELLO11111111111!!");
                 secureKeys = target.path("/requestAccess/" + endpoint.generateId())
                         .request().accept(MediaType.APPLICATION_JSON).get(SecureKeys.class);
+                
+                System.err.println("HELLO!!");
                 
                 Response response = target.path("/" + endpoint.generateId()).queryParam("secret",secureKeys.getPrivateKey())
                         .request()
