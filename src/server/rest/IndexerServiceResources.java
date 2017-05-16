@@ -48,7 +48,7 @@ public class IndexerServiceResources implements IndexerServiceAPI {
     private String rendezUrl; //rebdezvous location
     private static final String KEYWORD_SPLIT = "[ \\+]";
 
-    private Producer<String, String> producer;
+    private Producer<String, byte[]> producer;
 
     public IndexerServiceResources() {
         new Thread(new Subscriber()).start();
@@ -56,7 +56,10 @@ public class IndexerServiceResources implements IndexerServiceAPI {
         Properties properties = new Properties();
         properties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "kafka1:9092,kafka2:9092,kafka3:9092");
         properties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
-        properties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
+        //properties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer"); 
+        properties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArraySerializer");
+        
+        
 
         producer = new KafkaProducer<>(properties);
     }
@@ -64,8 +67,8 @@ public class IndexerServiceResources implements IndexerServiceAPI {
     @Override
     public List<String> search(String keywords) {
 
-        producer.send(new ProducerRecord<String, String>("Search", "" + System.currentTimeMillis(), keywords));
-        producer.send(new ProducerRecord<String, String>("topic", "", ""));        
+        producer.send(new ProducerRecord<String, byte[]>("Search", "SnapShots", "Hello".getBytes()));
+        
         //split query words
         String[] words = keywords.split(KEYWORD_SPLIT);
 
@@ -214,17 +217,17 @@ public class IndexerServiceResources implements IndexerServiceAPI {
             props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
             props.put(ConsumerConfig.GROUP_ID_CONFIG, "test" + System.nanoTime());
             props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
-            props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
-            try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props)) {
+            //props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
+            props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArrayDeserializer");
+            try (KafkaConsumer<String, byte[]> consumer = new KafkaConsumer<>(props)) {
                 consumer.subscribe(Arrays.asList("Search"));
                 while (true) {
-                    ConsumerRecords<String, String> records = consumer.poll(1000);
+                    ConsumerRecords<String, byte[]> records = consumer.poll(1000);
                     records.forEach(r -> {
-                        System.out.printf("topic = %s, key = %s, value = %s%n", r.topic(), r.key(), r.value());
+                        System.out.printf("topic = %s, key = %s, value = %s%n", r.topic(), r.key(), new String (r.value()));
                     });
                 }
             }
         }
-
     }
 }
