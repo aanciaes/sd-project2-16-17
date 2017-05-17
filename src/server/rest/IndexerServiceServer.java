@@ -56,9 +56,9 @@ public class IndexerServiceServer {
 
     public static void main(String[] args) throws Exception {
         if (args.length > 0) {
-            rendezVousAddr = UriBuilder.fromUri(args[0]).build();
+            SECRET = args[1];
             if (args.length > 1) {
-                SECRET = args[1];
+                rendezVousAddr = UriBuilder.fromUri(args[0]).build();
             }
         }
 
@@ -92,7 +92,7 @@ public class IndexerServiceServer {
         //Discovering RendezVousServer
         //Setting up multicast request.
         MulticastSocket socket = new MulticastSocket();
-
+        
         //Send multicast request with MESSAGE - Send up to three times
         for (int retry = 0; retry < 3; retry++) {
 
