@@ -32,10 +32,10 @@ public class RequestAuthentication {
 
     public static void main(String... args) {
         try {
-            String url = "https://172.18.0.3:8081/indexer";
-            if (args.length > 0) {
-                url = args[0];
-            }
+//            String url = "https://172.18.0.3:8081/indexer";
+//            if (args.length > 0) {
+//                url = args[0];
+//            }
 
             // Substituir pela API key atribuida
             final String apiKey = "B0SOwwuU5bEbUcaiSKUwrQN4o";
@@ -68,23 +68,27 @@ public class RequestAuthentication {
 
             ServerConfig serverConfig = new ServerConfig(apiKey, apiSecret, token, tokenSecret);
             // construir access token a partir dos elementos
+            System.err.println("apiKey: " + serverConfig.getApiKey());
+            System.err.println("apiSecret: " + serverConfig.getApuSecret());
+            System.err.println("token: " + serverConfig.getToken());
+            System.err.println("tokenSecret: " + serverConfig.getTokenSecret());
  
             
-            for (int retry = 0; retry < 3; retry++) {
-                try {
-                   Client client = ClientBuilder.newBuilder().hostnameVerifier(new IndexerServiceServer.InsecureHostnameVerifier()).build();
-                    WebTarget target = client.target(url);
-                    Response response = target.path("/configure").queryParam("secret", SECRET)
-                            .request()
-                            .put(Entity.entity(serverConfig, MediaType.APPLICATION_JSON));
-
-                    System.err.println(response.getStatus());
-                    break;
-                } catch (ProcessingException ex) {
-                    ex.printStackTrace();
-                    //retry method up to three times
-                }
-            }
+//            for (int retry = 0; retry < 3; retry++) {
+//                try {
+//                   Client client = ClientBuilder.newBuilder().hostnameVerifier(new IndexerServiceServer.InsecureHostnameVerifier()).build();
+//                    WebTarget target = client.target(url);
+//                    Response response = target.path("/configure").queryParam("secret", SECRET)
+//                            .request()
+//                            .put(Entity.entity(serverConfig, MediaType.APPLICATION_JSON));
+//
+//                    System.err.println(response.getStatus());
+//                    break;
+//                } catch (ProcessingException ex) {
+//                    ex.printStackTrace();
+//                    //retry method up to three times
+//                }
+//            }
 
         } catch (IOException | InterruptedException | ExecutionException ex) {
             ex.printStackTrace();
