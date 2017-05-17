@@ -13,7 +13,9 @@ import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
+import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
 import javax.ws.rs.ProcessingException;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
@@ -26,8 +28,6 @@ import org.glassfish.jersey.client.ClientConfig;
 import org.glassfish.jersey.client.ClientProperties;
 import org.glassfish.jersey.jdkhttp.JdkHttpServerFactory;
 import org.glassfish.jersey.server.ResourceConfig;
-import server.rest.IndexerServiceServer;
-import static server.rest.RendezVousServer.SECRET;
 
 public class TwitterProxy {
 
@@ -46,6 +46,8 @@ public class TwitterProxy {
     //Time before server raises exception
     private static final int CONNECT_TIMEOUT = 1000;
     private static final int READ_TIMEOUT = 1000;
+    
+    private static String SECRET = "secret";
 
     //this.endpoint
     private static Endpoint endpoint;
@@ -54,7 +56,10 @@ public class TwitterProxy {
 
     public static void main(String[] args) throws Exception {
         if (args.length > 0) {
-            rendezVousAddr = UriBuilder.fromUri(args[0]).build();
+            SECRET = args[1];
+            if (args.length > 1) {
+                rendezVousAddr = UriBuilder.fromUri(args[0]).build();
+            }
         }
 
         //Create endpoint
@@ -81,13 +86,13 @@ public class TwitterProxy {
         config.register(twitterResources);
         JdkHttpServerFactory.createHttpServer(configURI, config, SSLContext.getDefault());
 
-        System.err.println("SSL REST TwitetrProxy Server ready @ " + endpoint.getUrl());
+        System.err.println("SSL REST Twitter Proxy Server ready @ " + endpoint.getUrl());
         //
 
         //Discovering RendezVousServer
         //Setting up multicast request.
         MulticastSocket socket = new MulticastSocket();
-
+        
         //Send multicast request with MESSAGE - Send up to three times
         for (int retry = 0; retry < 3; retry++) {
 
@@ -100,21 +105,33 @@ public class TwitterProxy {
 
                 socket.receive(url_packet);
                 String rendezVousURL = new String(url_packet.getData(), 0, url_packet.getLength());
+                System.err.println(rendezVousURL);
 
                 int status = registerRendezVous(rendezVousURL);
-                if (status == 204) {
-                    //twitterResources.setUrl(rendezVousURL); //Sets rendezvous location on resources
-                    System.err.println("Service registered succesfully");
-                    //Creating keepAlive thread
-                    new Thread(new HeartBeat()).start();
-                    break;
+                if (status != 0) {
+                    if (status == 204) {
+                        //twitterResources.setUrl(rendezVousURL); //Sets rendezvous location on resources
+                        System.err.println("Service registered succesfully");
+                        //Creating keepAlive thread
+                        new Thread(new HeartBeat()).start();
+                        break;
+                    }
+                    System.err.println("An error occured while registering on the RendezVousServer. HTTP Error code: " + status);
+                    System.exit(1);
                 }
-                System.err.println("An error occured while registering on the RendezVousServer. HTTP Error code: " + status);
 
             } catch (SocketTimeoutException e) {
                 //No server responded within given time
+                if (retry == 2) {
+                    System.err.println("An error occured while registering on the RendezVousServer. Server did not responded in time");
+                    System.exit(1);
+                }
             } catch (IOException ex) {
                 //IO error
+                if (retry == 2) {
+                    System.err.println("An error occured while registering on the RendezVousServer.");
+                    System.exit(1);
+                }
             }
         }
     }
@@ -128,7 +145,7 @@ public class TwitterProxy {
     private static int registerRendezVous(String url) {
 
         for (int retry = 0; retry < 3; retry++) {
-            Client client = ClientBuilder.newBuilder().hostnameVerifier(new IndexerServiceServer.InsecureHostnameVerifier()).build();
+            Client client = ClientBuilder.newBuilder().hostnameVerifier(new InsecureHostnameVerifier()).build();
 
             rendezVousAddr = UriBuilder.fromUri(url).build();
 
@@ -141,7 +158,7 @@ public class TwitterProxy {
                 return response.getStatus();
 
             } catch (ProcessingException ex) {
-                ex.printStackTrace();
+                //
             }
         }
         return 0;
@@ -195,4 +212,13 @@ public class TwitterProxy {
             }
         }
     }
+
+    static public class InsecureHostnameVerifier implements HostnameVerifier {
+
+        @Override
+        public boolean verify(String string, SSLSession ssls) {
+            return true;
+        }
+    }
+
 }

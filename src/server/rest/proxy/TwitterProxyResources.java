@@ -7,6 +7,8 @@ package server.rest.proxy;
 
 import api.Document;
 import api.ServerConfig;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.scribejava.apis.TwitterApi;
 import com.github.scribejava.core.builder.ServiceBuilder;
 import com.github.scribejava.core.model.OAuth1AccessToken;
@@ -21,10 +23,6 @@ import java.util.concurrent.ExecutionException;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
-import org.json.simple.parser.ParseException;
 import server.rest.RendezVousServer;
 
 /**
@@ -71,7 +69,7 @@ public class TwitterProxyResources implements api.rest.IndexerServiceAPI {
                 return cache.getTweets(keywords);
             }
 
-        } catch (IOException | InterruptedException | ExecutionException | ParseException ex) {
+        } catch (IOException | InterruptedException | ExecutionException ex) {
             ex.printStackTrace();
             throw new WebApplicationException(Status.INTERNAL_SERVER_ERROR);
         }
@@ -83,6 +81,7 @@ public class TwitterProxyResources implements api.rest.IndexerServiceAPI {
             throw new WebApplicationException(Response.Status.FORBIDDEN);
         }
         serverConfig = config;
+        System.err.println("Proxy Server Configured");
     }
 
     @Override
@@ -100,18 +99,32 @@ public class TwitterProxyResources implements api.rest.IndexerServiceAPI {
         throw new WebApplicationException(Status.METHOD_NOT_ALLOWED);
     }
 
-    private List<String> parseJson(String json) throws ParseException {
-        Object obj = new JSONParser().parse(json);
+    private List<String> parseJson(String json) throws IOException{
+        
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode root = mapper.readTree(json);
+        
+        List<String> ids = new ArrayList(root.size());
+        
+        
+        root.at("/statuses").forEach(tweet -> {
+            String tweetId = tweet.get("id").asText();
+            ids.add(TWEET_BASE_URL + tweetId);
+        });
+        
+        
+        
+        
+//        Object obj = new JsonParser().parse(json);
+//
+//        JSONObject jsonObject = (JSONObject) obj;
+//        JSONArray statuses = (JSONArray) jsonObject.get("statuses");
 
-        JSONObject jsonObject = (JSONObject) obj;
-        JSONArray statuses = (JSONArray) jsonObject.get("statuses");
 
-        List<String> ids = new ArrayList(statuses.size());
-
-        for (int i = 0; i < statuses.size(); i++) {
-            JSONObject tweet = (JSONObject) statuses.get(i);
-            ids.add(TWEET_BASE_URL + tweet.get("id"));
-        }
+//        for (int i = 0; i < statuses.size(); i++) {
+//            JSONObject tweet = (JSONObject) statuses.get(i);
+//            ids.add(TWEET_BASE_URL + tweet.get("id"));
+//        }
         return ids;
     }
 }

@@ -32,7 +32,7 @@ public class RequestAuthentication {
 
     public static void main(String... args) {
         try {
-            String url = "https://172.17.0.3:8081/indexer";
+            String url = "https://172.18.0.3:8081/indexer";
             if (args.length > 0) {
                 url = args[0];
             }

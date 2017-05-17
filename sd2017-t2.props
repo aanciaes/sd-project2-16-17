@@ -1,0 +1,17 @@
+rendezvous-mainclass=sys.rendezvous.RendezVousServer
+rendezvous-port=8080
+rendezvous-multicast-address=229.229.229.229:9999
+rendezvous-timeout=15
+indexer-rest-mainclass=sys.indexer.rest.IndexerServer
+indexer-soap-mainclass=sys.indexer.soap.IndexerServer
+proxy-mainclass=sys.indexer.proxy.TwitterIndexerProxy
+proxy-cache-expiration-ms=10000
+rendezvous-keystore=/tmp/sd/rendezvous.jks
+rendezvous-keystore-password=badjoraz
+indexer-keystore=/tmp/sd/indexer.jks
+indexer-keystore-password=badjoraz
+indexer-truststore=/tmp/sd/indexer-ts.jks
+indexer-truststore-password=badjoraz
+tester-truststore=/tmp/sd/tester.jks
+tester-truststore-password=badjoraz
+server-config-json={"apiKey":"<use yours>","apiSecret":"use yours","token":"use yours","tokenSecret":"use yours"}
