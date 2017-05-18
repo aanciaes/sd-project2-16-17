@@ -11,7 +11,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import javax.ws.rs.WebApplicationException;
 
 import api.rest.RendezVousAPI;
-import javax.ws.rs.core.Response;
 
 import static javax.ws.rs.core.Response.Status.*;
 
@@ -32,7 +31,7 @@ public class RendezVousResources implements RendezVousAPI {
         System.err.printf("register: %s <%s>\n", id, endpoint);
 
         if (!RendezVousServer.SECRET.equals(secret)) {
-            throw new WebApplicationException(Response.Status.FORBIDDEN);
+            throw new WebApplicationException(FORBIDDEN);
         }
 
         if (db.containsKey(id)) {
@@ -47,7 +46,7 @@ public class RendezVousResources implements RendezVousAPI {
         System.err.printf("deleting: %s\n", id);
 
         if (!RendezVousServer.SECRET.equals(secret)) {
-            throw new WebApplicationException(Response.Status.FORBIDDEN);
+            throw new WebApplicationException(FORBIDDEN);
         }
 
         if (!db.containsKey(id)) {
