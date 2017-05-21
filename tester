@@ -9,7 +9,7 @@ LOGS=$(pwd)/logs/
 mkdir -p $LOGS
 
 #update the images, in particular the client
-docker pull smduarte/sd17-client:latest
+docker pull smduarte/sd17-client2:latest
 
 #execute the client with the given command line parameters
 docker run -it -v $LOGS:/logs/ -v /var/run/docker.sock:/var/run/docker.sock smduarte/sd17-client2:latest $*
