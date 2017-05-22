@@ -7,16 +7,20 @@ package server.rest;
 import api.Document;
 import api.Endpoint;
 import api.ServerConfig;
+import api.Snapshot;
+import api.SnapshotSerializer;
 import api.rest.IndexerServiceAPI;
 import api.soap.IndexerAPI;
 import static api.soap.IndexerAPI.NAME;
 import static api.soap.IndexerAPI.NAMESPACE;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import javax.ws.rs.ProcessingException;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.client.Client;
@@ -28,6 +32,13 @@ import static javax.ws.rs.core.Response.Status.CONFLICT;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 import javax.xml.namespace.QName;
 import javax.xml.ws.Service;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.Producer;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import sys.storage.LocalVolatileStorage;
 
 /**
@@ -40,8 +51,29 @@ public class IndexerServiceResources implements IndexerServiceAPI {
     private String rendezUrl; //rebdezvous location
     private static final String KEYWORD_SPLIT = "[ \\+]";
 
+    private Producer<String, byte[]> producer;
+
+    public IndexerServiceResources() {
+
+        Properties properties = new Properties();
+
+        properties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "kafka1:9092,kafka2:9092,kafka3:9092");
+        properties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
+        //properties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArraySerializer");
+        properties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArraySerializer");
+        producer = new KafkaProducer<>(properties);
+        
+        new Thread(new test()).start();
+    }
+
     @Override
     public List<String> search(String keywords) {
+
+        try {
+            producer.send(new ProducerRecord<String, byte[]>("topic", "chave", SnapshotSerializer.serialize(new Snapshot("HelloWorld"))));
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
 
         //split query words
         String[] words = keywords.split(KEYWORD_SPLIT);
@@ -67,7 +99,7 @@ public class IndexerServiceResources implements IndexerServiceAPI {
         if (!RendezVousServer.SECRET.equals(secret)) {
             throw new WebApplicationException(Response.Status.FORBIDDEN);
         }
-        
+
         boolean status = storage.store(id, doc);
         if (!status) {
             //If document already exists in storage
@@ -181,4 +213,36 @@ public class IndexerServiceResources implements IndexerServiceAPI {
             throw new WebApplicationException(Response.Status.FORBIDDEN);
         }
     }
+
+    static class test implements Runnable {
+
+        @Override
+        public void run() {
+            Properties props = new Properties();
+            props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "kafka1:9092,kafka2:9092,kafka3:9092");
+            props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+            props.put(ConsumerConfig.GROUP_ID_CONFIG, "test" + System.nanoTime());
+            props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
+            //props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,  "org.apache.kafka.common.serialization.StringDeserializer");
+            props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArrayDeserializer");
+
+            try (KafkaConsumer<String, byte[]> consumer
+                    = new KafkaConsumer<>(props)) {
+                consumer.subscribe(Arrays.asList("topic"));
+                while (true) {
+                    ConsumerRecords<String, byte[]> rec = consumer.poll(1000);
+                    rec.forEach(r -> {
+                        try {
+                            System.out.printf("topic = %s,key = %s,value = %s%n",
+                                    r.topic(), r.key(), SnapshotSerializer.deserialize(r.value()).getTest());
+                        } catch (IOException | ClassNotFoundException ex) {
+                            ex.printStackTrace();
+                        }
+                    });
+                }
+            }
+        }
+
+    }
+
 }

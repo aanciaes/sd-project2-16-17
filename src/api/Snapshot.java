@@ -5,10 +5,21 @@
  */
 package api;
 
+import java.io.Serializable;
+
 /**
  *
  * @author miguel
  */
-public class Snapshot {
+public class Snapshot implements Serializable{
     
+    private String test;
+
+    public Snapshot(String test) {
+        this.test = test;
+    }
+
+    public String getTest() {
+        return test;
+    }   
 }

@@ -18,6 +18,7 @@ import javax.ws.rs.core.MediaType;
 /**
  * Interface do servidor que mantem lista de servidores.
  */
+@Path("/contacts")
 public interface RendezVousAPI {
 
     /**
