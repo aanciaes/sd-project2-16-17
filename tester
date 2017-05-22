@@ -12,7 +12,7 @@ mkdir -p $LOGS
 docker pull smduarte/sd17-client2:latest
 
 #execute the client with the given command line parameters
-docker run -it -v $LOGS:/logs/ -v /var/run/docker.sock:/var/run/docker.sock smduarte/sd17-client2:latest $*
+docker run --network=sd-net -it -v $LOGS:/logs/ -v /var/run/docker.sock:/var/run/docker.sock smduarte/sd17-client2:latest $*
 
 #pull the logs to the host
 echo "Container logs:" $LOGS
