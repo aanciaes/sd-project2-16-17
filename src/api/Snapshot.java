@@ -6,6 +6,7 @@
 package api;
 
 import java.io.Serializable;
+import sys.storage.LocalVolatileStorage;
 
 /**
  *
@@ -13,13 +14,20 @@ import java.io.Serializable;
  */
 public class Snapshot implements Serializable{
     
-    private String test;
+    private LocalVolatileStorage storage;
+    private long offset;
+    
 
-    public Snapshot(String test) {
-        this.test = test;
+    public Snapshot(LocalVolatileStorage actual_storage, long offset) {
+        this.storage = actual_storage;
+        this.offset = offset;
     }
 
-    public String getTest() {
-        return test;
-    }   
+    public LocalVolatileStorage getStorage(){
+        return storage;
+    }
+    
+    public long getOffset(){
+        return offset;
+    }
 }

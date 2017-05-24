@@ -1,10 +1,11 @@
 package api;
 
+import java.io.Serializable;
 import java.util.List;
 
 import utils.MD5;
 
-public class Document {
+public class Document implements Serializable {
 
     private String url;
     private List<String> keywords;

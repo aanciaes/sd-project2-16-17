@@ -52,6 +52,7 @@ public class IndexerServiceResources implements IndexerServiceAPI {
     private static final String KEYWORD_SPLIT = "[ \\+]";
 
     private Producer<String, byte[]> producer;
+    private long lastOffset;
 
     public IndexerServiceResources() {
 
@@ -63,14 +64,17 @@ public class IndexerServiceResources implements IndexerServiceAPI {
         properties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArraySerializer");
         producer = new KafkaProducer<>(properties);
         
-        new Thread(new test()).start();
+        new Thread(new test(this)).start();
     }
 
     @Override
     public List<String> search(String keywords) {
 
         try {
-            producer.send(new ProducerRecord<String, byte[]>("topic", "chave", SnapshotSerializer.serialize(new Snapshot("HelloWorld"))));
+            List<String> list = new ArrayList<String>();
+            list.add("badjoraz");
+            list.add("ola");
+            producer.send(new ProducerRecord<String, byte[]>("Operation", "add", SnapshotSerializer.serialize(new Document(keywords, list))));
         } catch (IOException ex) {
             ex.printStackTrace();
         }
@@ -213,11 +217,35 @@ public class IndexerServiceResources implements IndexerServiceAPI {
             throw new WebApplicationException(Response.Status.FORBIDDEN);
         }
     }
+    
+    public IndexerServiceResources getResourcesClass(){
+        return this;
+    }
+
+    private void addKafka(String id, Document doc, long offset) {
+            
+            if(storage.store(id, doc)){
+                System.out.println("true");
+                lastOffset = offset;
+            }
+    }
+    
+    private void removeKafka(String id, long offset){
+        if(storage.remove(id)){
+            System.out.println("true");
+            lastOffset = offset;
+        }
+    }
 
     static class test implements Runnable {
-
+         IndexerServiceResources isr;
+        public test(IndexerServiceResources resources){
+            isr = resources;
+        }
         @Override
         public void run() {
+           
+            
             Properties props = new Properties();
             props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "kafka1:9092,kafka2:9092,kafka3:9092");
             props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
@@ -228,13 +256,25 @@ public class IndexerServiceResources implements IndexerServiceAPI {
 
             try (KafkaConsumer<String, byte[]> consumer
                     = new KafkaConsumer<>(props)) {
-                consumer.subscribe(Arrays.asList("topic"));
+                consumer.subscribe(Arrays.asList("Operation"));
                 while (true) {
                     ConsumerRecords<String, byte[]> rec = consumer.poll(1000);
                     rec.forEach(r -> {
                         try {
-                            System.out.printf("topic = %s,key = %s,value = %s%n",
-                                    r.topic(), r.key(), SnapshotSerializer.deserialize(r.value()).getTest());
+                            String op = r.key();
+                            switch(op){
+                                case "add":                            
+                                     Document doc = ((Document)SnapshotSerializer.deserialize(r.value()));
+                                     isr.addKafka(doc.id(), doc, r.offset());
+                                break;
+                                case "remove":
+                                    String id = ((String)SnapshotSerializer.deserialize(r.value()));
+                                     isr.removeKafka(id, r.offset());
+                                    break;
+                                default:
+                                    break;
+                            }
+                           
                         } catch (IOException | ClassNotFoundException ex) {
                             ex.printStackTrace();
                         }
