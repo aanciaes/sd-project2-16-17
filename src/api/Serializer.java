@@ -15,7 +15,7 @@ import java.io.ObjectOutputStream;
  *
  * @author miguel
  */
-public class SnapshotSerializer {
+public class Serializer {
 
     public static byte[] serialize(Object obj) throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
