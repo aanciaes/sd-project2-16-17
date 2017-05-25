@@ -13,14 +13,6 @@ import com.github.scribejava.core.oauth.OAuth10aService;
 import java.io.IOException;
 import java.util.Scanner;
 import java.util.concurrent.ExecutionException;
-import javax.ws.rs.ProcessingException;
-import javax.ws.rs.client.Client;
-import javax.ws.rs.client.ClientBuilder;
-import javax.ws.rs.client.Entity;
-import javax.ws.rs.client.WebTarget;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import server.rest.IndexerServiceServer;
 /**
  *
  * @author miguel
@@ -69,7 +61,7 @@ public class RequestAuthentication {
             ServerConfig serverConfig = new ServerConfig(apiKey, apiSecret, token, tokenSecret);
             // construir access token a partir dos elementos
             System.err.println("apiKey: " + serverConfig.getApiKey());
-            System.err.println("apiSecret: " + serverConfig.getApuSecret());
+            System.err.println("apiSecret: " + serverConfig.getApiSecret());
             System.err.println("token: " + serverConfig.getToken());
             System.err.println("tokenSecret: " + serverConfig.getTokenSecret());
  

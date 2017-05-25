@@ -14,7 +14,7 @@ public class CacheSystem implements Cache {
     private static final long TTL = 10000;
 
     //Storing tweets
-    private Map<String, CacheObject> tweets;
+    private Map<Integer, CacheObject> tweets;
 
     public CacheSystem() {
         tweets = new ConcurrentHashMap();
@@ -22,18 +22,18 @@ public class CacheSystem implements Cache {
     }
 
     @Override
-    public boolean inCache(String keywords) {
-        return tweets.containsKey(keywords);
+    public boolean inCache(int hash) {
+        return tweets.containsKey(hash);
     }
 
     @Override
-    public List<String> getTweets(String keywords) {
-        return tweets.get(keywords).getTweets();
+    public List<String> getTweets(int hash) {
+        return tweets.get(hash).getTweets();
     }
 
     @Override
-    public void store(String keywords, List<String> tweets) {
-        this.tweets.put(keywords, new CacheObject(keywords, tweets, System.currentTimeMillis()));
+    public void store(int hash, List<String> tweets) {
+        this.tweets.put(hash, new CacheObject(hash, tweets, System.currentTimeMillis()));
 
     }
 
@@ -47,26 +47,26 @@ public class CacheSystem implements Cache {
     }
 
     @Override
-    public void delete(String keywords) {
-        tweets.remove(keywords);
+    public void delete(int hash) {
+        tweets.remove(hash);
     }
 
     private class CacheObject {
 
-        private final String keywords;
+        private final int hash;
         private final List<String> tweets;
         private int hits;
         private final Long firstAccess;
 
-        public CacheObject(String keywords, List<String> tweets, Long firstAccess) {
-            this.keywords = keywords;
+        public CacheObject(int hash, List<String> tweets, Long firstAccess) {
+            this.hash = hash;
             this.tweets = tweets;
             hits = 1;
             this.firstAccess = firstAccess;
         }
 
-        public String getKeywords() {
-            return keywords;
+        public int getHash() {
+            return hash;
         }
 
         public List<String> getTweets() {

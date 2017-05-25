@@ -47,7 +47,7 @@ public class TwitterProxy {
     private static final int CONNECT_TIMEOUT = 1000;
     private static final int READ_TIMEOUT = 1000;
     
-    private static String SECRET = "secret";
+    public static String SECRET = "secret";
 
     //this.endpoint
     private static Endpoint endpoint;
@@ -56,9 +56,9 @@ public class TwitterProxy {
 
     public static void main(String[] args) throws Exception {
         if (args.length > 0) {
-            SECRET = args[1];
+            SECRET = args[0];
             if (args.length > 1) {
-                rendezVousAddr = UriBuilder.fromUri(args[0]).build();
+                rendezVousAddr = UriBuilder.fromUri(args[1]).build();
             }
         }
 

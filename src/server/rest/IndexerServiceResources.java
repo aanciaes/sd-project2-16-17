@@ -17,9 +17,12 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
+import static java.util.Collections.list;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.ws.rs.ProcessingException;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.client.Client;
@@ -50,11 +53,19 @@ public class IndexerServiceResources implements IndexerServiceAPI {
     private String rendezUrl; //rebdezvous location
     private static final String KEYWORD_SPLIT = "[ \\+]";
 
-    //private Producer<String, byte[]> producer;
+    private Producer<String, byte[]> producer;
     private long lastOffset;
 
     public IndexerServiceResources() {
+        Properties properties = new Properties();
 
+        properties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "kafka1:9092,kafka2:9092,kafka3:9092");
+        properties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
+        //properties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArraySerializer");
+        properties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArraySerializer");
+
+        producer = new KafkaProducer<>(properties);
+        
         storage = replicationInit();
         new Thread(new test(this)).start();
 
@@ -63,6 +74,8 @@ public class IndexerServiceResources implements IndexerServiceAPI {
     @Override
     public List<String> search(String keywords) {
 
+        System.err.println("SEARCH");
+        
 //        try {
 //            List<String> list = new ArrayList<String>();
 //            list.add("badjoraz");
@@ -105,22 +118,28 @@ public class IndexerServiceResources implements IndexerServiceAPI {
 
     @Override
     public void add(String id, String secret, Document doc) {
-
-        if (!RendezVousServer.SECRET.equals(secret)) {
+        
+        if (!IndexerServiceServer.SECRET.equals(secret)) {
             throw new WebApplicationException(Response.Status.FORBIDDEN);
         }
-
         boolean status = storage.store(id, doc);
         if (!status) {
             //If document already exists in storage
+            System.err.println("NO ADD: " + doc.hashCode());
             throw new WebApplicationException(CONFLICT);
         }
-        //System.err.println(status ? "Document added successfully " : "An error occured. Document was not stored");
+        
+        try {
+            producer.send(new ProducerRecord<String, byte[]>("Operation", "add", Serializer.serialize(doc)));
+            //System.err.println(status ? "Document added successfully " : "An error occured. Document was not stored");
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
     }
 
     @Override
     public void remove(String id, String secret) {
-        if (!RendezVousServer.SECRET.equals(secret)) {
+        if (!IndexerServiceServer.SECRET.equals(secret)) {
             throw new WebApplicationException(Response.Status.FORBIDDEN);
         }
         //Getting all indexers registered in rendezvous 
@@ -171,6 +190,12 @@ public class IndexerServiceResources implements IndexerServiceAPI {
         }
         if (!removed) { //No document removed
             throw new WebApplicationException(CONFLICT);
+        }
+        try {
+            producer.send(new ProducerRecord<String, byte[]>("Operation", "add", Serializer.serialize(id)));
+            //System.err.println(status ? "Document added successfully " : "An error occured. Document was not stored");
+        } catch (IOException ex) {
+            ex.printStackTrace();
         }
     }
 
@@ -233,6 +258,8 @@ public class IndexerServiceResources implements IndexerServiceAPI {
         if (storage.store(id, doc)) {
             System.out.println("true");
             lastOffset = offset;
+        }else{
+            System.err.println("NO ADD KAFKA: " + doc.hashCode());
         }
     }
 
@@ -309,7 +336,6 @@ public class IndexerServiceResources implements IndexerServiceAPI {
                 while (true) {
                     ConsumerRecords<String, byte[]> rec = consumer.poll(1000);
                     rec.forEach(r -> {
-                        System.err.println("GOTCHA");
                         try {
                             String op = r.key();
                             switch (op) {

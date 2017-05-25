@@ -1,41 +1,51 @@
-/*
- * @author: Miguel Anciaes n43367 (m.anciaes@campus.fct.unl.pt)
- * @author: Ricardo Amaral n43368 (rm.amaral@campus.fct.unl.pt)
- */
-
 package api;
 
 public class ServerConfig {
 
-    private String apiKey;
-    private String apuSecret;
-    private String token;
-    private String tokenSecret;
-    
-    public ServerConfig () {
-        
-    }
-    
-    public ServerConfig(String apiKey, String apuSecret, String token, String tokenSecret) {
-        this.apiKey = apiKey;
-        this.apuSecret = apuSecret;
-        this.token = token;
-        this.tokenSecret = tokenSecret;
-    }
+	private String apiKey;
+	private String apiSecret;
+	private String token;
+	private String tokenSecret;
 
-    public String getApiKey() {
-        return apiKey;
-    }
+	public ServerConfig() {
+	}
 
-    public String getApuSecret() {
-        return apuSecret;
-    }
+	public ServerConfig(String apiKey, String apuSecret, String token, String tokenSecret) {
+		this.apiKey = apiKey;
+		this.apiSecret = apuSecret;
+		this.token = token;
+		this.tokenSecret = tokenSecret;
+	}
 
-    public String getToken() {
-        return token;
-    }
+	public String getApiKey() {
+		return apiKey;
+	}
 
-    public String getTokenSecret() {
-        return tokenSecret;
-    }
+	public void setApiKey(String apiKey) {
+		this.apiKey = apiKey;
+	}
+
+	public String getApiSecret() {
+		return apiSecret;
+	}
+
+	public void setApiSecret(String apiSecret) {
+		this.apiSecret = apiSecret;
+	}
+
+	public String getToken() {
+		return token;
+	}
+
+	public void setToken(String token) {
+		this.token = token;
+	}
+
+	public String getTokenSecret() {
+		return tokenSecret;
+	}
+
+	public void setTokenSecret(String tokenSecret) {
+		this.tokenSecret = tokenSecret;
+	}
 }

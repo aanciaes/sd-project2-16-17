@@ -9,14 +9,14 @@ import java.util.List;
 
 public interface Cache {
     
-    boolean inCache (String keywords /*or String url*/);
+    boolean inCache (int hash /*or String url*/);
     
-    List<String> getTweets (String keywords /*or String url*/);
+    List<String> getTweets (int hash /*or String url*/);
     
-    void store (String keywords /*or String url*/, List<String> tweets);
+    void store (int hash /*or String url*/, List<String> tweets);
     
     void updateCache ();
     
-    void delete (String keywords /*or String url*/);
+    void delete (int hash /*or String url*/);
     
 }

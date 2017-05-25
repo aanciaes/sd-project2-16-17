@@ -35,7 +35,7 @@ public class IndexerServiceServer {
     private static final String ZERO_IP = "0.0.0.0";
     private static final int PORT = 8081;
 
-    private static String SECRET = "secret";
+    public static String SECRET = "secret";
 
     //Multicast address, port and message
     private static final String MULTICAST_ADDRESS = "238.69.69.69";
@@ -56,9 +56,9 @@ public class IndexerServiceServer {
 
     public static void main(String[] args) throws Exception {
         if (args.length > 0) {
-            SECRET = args[1];
+            SECRET = args[0];
             if (args.length > 1) {
-                rendezVousAddr = UriBuilder.fromUri(args[0]).build();
+                rendezVousAddr = UriBuilder.fromUri(args[1]).build();
             }
         }
 
