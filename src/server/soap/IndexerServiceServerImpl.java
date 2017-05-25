@@ -6,14 +6,16 @@ package server.soap;
 
 import api.Document;
 import api.Endpoint;
+import api.Serializer;
 import api.ServerConfig;
-import api.soap.IndexerAPI;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import javax.jws.WebService;
 import javax.ws.rs.ProcessingException;
 import javax.ws.rs.client.Client;
@@ -23,21 +25,45 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.xml.namespace.QName;
 import javax.xml.ws.Service;
-import org.glassfish.jersey.client.ClientConfig;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.Producer;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import sys.storage.LocalVolatileStorage;
+import api.soap.IndexerService;
+import org.apache.kafka.clients.producer.ProducerRecord;
 
 @WebService(
-        serviceName = IndexerAPI.NAME,
-        targetNamespace = IndexerAPI.NAMESPACE,
-        endpointInterface = IndexerAPI.INTERFACE)
+        serviceName = IndexerService.NAME,
+        targetNamespace = IndexerService.NAMESPACE,
+        endpointInterface = IndexerService.INTERFACE)
 
-public class IndexerServiceServerImpl implements IndexerAPI {
+public class IndexerServiceServerImpl implements IndexerService {
 
-    private final LocalVolatileStorage storage = new LocalVolatileStorage(); //Documents "database"
+    private LocalVolatileStorage storage = new LocalVolatileStorage(); //Documents "database"
     private String rendezUrl; //RendezVous location
 
     private static final String KEYWORD_SPLIT = "[ \\+]";
     private static final int SUCCESS_NOCONTENT = 204;
+
+    private Producer<String, byte[]> producer;
+    private long lastOffset;
+
+    public IndexerServiceServerImpl() {
+        Properties properties = new Properties();
+
+        properties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "kafka1:9092,kafka2:9092,kafka3:9092");
+        properties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
+        //properties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArraySerializer");
+        properties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArraySerializer");
+
+        producer = new KafkaProducer<>(properties);
+
+        storage = replicationInit();
+        new Thread(new kafkaReplication(this)).start();
+    }
 
     @Override
     public List<String> search(String keywords) throws InvalidArgumentException {
@@ -69,12 +95,18 @@ public class IndexerServiceServerImpl implements IndexerAPI {
         if (doc == null) {
             throw new InvalidArgumentException();
         }
-        if (!server.rest.RendezVousServer.SECRET.equals(secret)) {
+        if (!IndexerServiceServer.SECRET.equals(secret)) {
             throw new SecurityException();
         }
         try {
             boolean status = storage.store(doc.id(), doc);
             System.err.println(status ? "Document added successfully " : "An error occured. Document was not stored");
+            try {
+                producer.send(new ProducerRecord<String, byte[]>("Operation", "add", Serializer.serialize(doc)));
+                //System.err.println(status ? "Document added successfully " : "An error occured. Document was not stored");
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
             return status;
         } catch (Exception e) {
             return false;
@@ -87,12 +119,12 @@ public class IndexerServiceServerImpl implements IndexerAPI {
             throw new InvalidArgumentException();
         }
 
-        if (!server.rest.RendezVousServer.SECRET.equals(secret)) {
+        if (!IndexerServiceServer.SECRET.equals(secret)) {
             throw new SecurityException();
         }
 
-        ClientConfig config = new ClientConfig();
-        Client client = ClientBuilder.newClient(config);
+        //Getting all indexers registered in rendezvous 
+        Client client = ClientBuilder.newBuilder().hostnameVerifier(new IndexerServiceServer.InsecureHostnameVerifier()).build();
 
         Endpoint[] endpoints = null;
         for (int retry = 0; retry < 3; retry++) {
@@ -106,6 +138,7 @@ public class IndexerServiceServerImpl implements IndexerAPI {
                     break;
                 }
             } catch (ProcessingException ex) {
+                ex.printStackTrace();
                 //retry up to three times
             }
         }
@@ -139,6 +172,12 @@ public class IndexerServiceServerImpl implements IndexerAPI {
                 //Do nothing... continue to remove on other indexers
             }
         }
+        try {
+            producer.send(new ProducerRecord<String, byte[]>("Operation", "add", Serializer.serialize(id)));
+            //System.err.println(status ? "Document added successfully " : "An error occured. Document was not stored");
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
         return removed;
     }
 
@@ -157,7 +196,7 @@ public class IndexerServiceServerImpl implements IndexerAPI {
             URL wsURL = new URL(url);
             QName QNAME = new QName(NAMESPACE, NAME);
             Service service = Service.create(wsURL, QNAME);
-            IndexerAPI indexer = service.getPort(IndexerAPI.class);
+            IndexerService indexer = service.getPort(IndexerService.class);
             return indexer.removeDoc(id);
         } catch (MalformedURLException e) {
             return false;
@@ -167,8 +206,8 @@ public class IndexerServiceServerImpl implements IndexerAPI {
     private boolean removeRest(String id, String url) {
         for (int retry = 0; retry < 3; retry++) {
             try {
-                ClientConfig config = new ClientConfig();
-                Client client = ClientBuilder.newClient(config);
+                //Getting all indexers registered in rendezvous 
+                Client client = ClientBuilder.newBuilder().hostnameVerifier(new IndexerServiceServer.InsecureHostnameVerifier()).build();
                 WebTarget target = client.target(url);
                 Response response = target.path("/remove/" + id).request().delete();
 
@@ -187,8 +226,115 @@ public class IndexerServiceServerImpl implements IndexerAPI {
         if (secret == null || config == null) {
             throw new InvalidArgumentException();
         }
-        if (!server.rest.RendezVousServer.SECRET.equals(secret)) {
+        if (!IndexerServiceServer.SECRET.equals(secret)) {
             throw new SecurityException();
+        }
+    }
+
+    private LocalVolatileStorage replicationInit() {
+
+//        Properties props = new Properties();
+//        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "kafka1:9092,kafka2:9092,kafka3:9092");
+//        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+//        props.put(ConsumerConfig.GROUP_ID_CONFIG, "test" + System.nanoTime());
+//        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
+//        //props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,  "org.apache.kafka.common.serialization.StringDeserializer");
+//        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArrayDeserializer");
+//
+//        try (KafkaConsumer<String, byte[]> consumer = new KafkaConsumer<>(props)) {
+//            consumer.subscribe(Arrays.asList("Snapshots"));
+//
+//            ConsumerRecords<String, byte[]> rec = consumer.poll(1000);
+//            System.err.println("UVOU");
+//            try {
+//                if (rec.isEmpty()) {
+//                    System.err.println("Empty");
+//
+//                    return new LocalVolatileStorage();
+//                } else {
+//                    System.err.println("Not empty");
+//                    LocalVolatileStorage st = new LocalVolatileStorage();
+//                    long offset = -1;
+//                    Iterator<ConsumerRecord<String, byte[]>> it = rec.iterator();
+//                    while (it.hasNext()) {
+//                        ConsumerRecord<String, byte[]> r = it.next();
+//                        if (r.offset() > offset) {
+//                            offset = r.offset();
+//                            st = ((Snapshot) Serializer.deserialize(r.value())).getStorage();
+//                        }
+//                    }
+//
+//                    return st;
+//                }
+//            } catch (IOException | ClassNotFoundException ex) {
+//                ex.printStackTrace();
+//            }
+//        }
+        return new LocalVolatileStorage();
+    }
+
+    private void addKafka(String id, Document doc, long offset) {
+
+        if (storage.store(id, doc)) {
+            System.out.println("true");
+            lastOffset = offset;
+        } else {
+            System.err.println("NO ADD KAFKA: " + doc.hashCode());
+        }
+    }
+
+    private void removeKafka(String id, long offset) {
+        if (storage.remove(id)) {
+            System.out.println("true");
+            lastOffset = offset;
+        }
+    }
+
+    static class kafkaReplication implements Runnable {
+
+        IndexerServiceServerImpl isi;
+
+        public kafkaReplication(IndexerServiceServerImpl implement) {
+            isi = implement;
+        }
+
+        @Override
+        public void run() {
+
+            Properties props = new Properties();
+            props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "kafka1:9092,kafka2:9092,kafka3:9092");
+            props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+            props.put(ConsumerConfig.GROUP_ID_CONFIG, "test" + System.nanoTime());
+            props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
+            //props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,  "org.apache.kafka.common.serialization.StringDeserializer");
+            props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArrayDeserializer");
+
+            try (KafkaConsumer<String, byte[]> consumer
+                    = new KafkaConsumer<>(props)) {
+                consumer.subscribe(Arrays.asList("Operation"));
+                while (true) {
+                    ConsumerRecords<String, byte[]> rec = consumer.poll(10);
+                    rec.forEach(r -> {
+                        try {
+                            String op = r.key();
+                            switch (op) {
+                                case "add":
+                                    Document doc = ((Document) Serializer.deserialize(r.value()));
+                                    isi.addKafka(doc.id(), doc, r.offset());
+                                    break;
+                                case "remove":
+                                    String id = ((String) Serializer.deserialize(r.value()));
+                                    isi.removeKafka(id, r.offset());
+                                    break;
+                                default:
+                                    break;
+                            }
+                        } catch (IOException | ClassNotFoundException ex) {
+                            ex.printStackTrace();
+                        }
+                    });
+                }
+            }
         }
     }
 }

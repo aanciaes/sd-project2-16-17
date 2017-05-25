@@ -47,6 +47,8 @@ public class IndexerServiceServer {
     private static final String SOAP_RECV_TIMEOUT = "1000";
     private static final int TIMEOUT = 1000;
 
+    public static String SECRET = "secret";
+
     //this.endpoint
     private static api.Endpoint endpoint;
     //rendezvous location
@@ -56,7 +58,10 @@ public class IndexerServiceServer {
 
         int port = 8080;
         if (args.length > 0) {
-            rendezVousAddr = UriBuilder.fromUri(args[0]).build();
+            SECRET = args[0];
+            if (args.length > 1) {
+                rendezVousAddr = UriBuilder.fromUri(args[1]).build();
+            }
         }
 
         //Set server type
@@ -69,7 +74,6 @@ public class IndexerServiceServer {
 
 //        //Set up Server
 //        String configURI = String.format("https://%s:%d/indexer", ZERO_IP, port);
-
         //set timeouts
         System.setProperty("javax.xml.ws.client.connectionTimeout", SOAP_CONN_TIMEOUT);
         System.setProperty("javax.xml.ws.client.receiveTimeout", SOAP_RECV_TIMEOUT);
@@ -84,7 +88,7 @@ public class IndexerServiceServer {
         //Saves config instance so can insert rendezvous address later
         //Avoids multicast requests on remove document function
         IndexerServiceServerImpl indexerServiceImpl = new IndexerServiceServerImpl();
-        
+
         Endpoint ed = Endpoint.create(indexerServiceImpl);
         ed.publish(httpContext);
         //
@@ -158,7 +162,7 @@ public class IndexerServiceServer {
             WebTarget target = client.target(rendezVousAddr);
 
             try {
-                Response response = target.path("/" + endpoint.generateId()).queryParam("secret",server.rest.RendezVousServer.SECRET)
+                Response response = target.path("/" + endpoint.generateId()).queryParam("secret", IndexerServiceServer.SECRET)
                         .request()
                         .post(Entity.entity(endpoint, MediaType.APPLICATION_JSON));
                 return response.getStatus();
@@ -215,10 +219,11 @@ public class IndexerServiceServer {
     }
 
     static public class InsecureHostnameVerifier implements HostnameVerifier {
-		@Override
-		public boolean verify(String hostname, SSLSession session) {
-			return true;
-		}
-	}
-    
+
+        @Override
+        public boolean verify(String hostname, SSLSession session) {
+            return true;
+        }
+    }
+
 }

@@ -9,20 +9,16 @@ import api.Endpoint;
 import api.ServerConfig;
 import api.Serializer;
 import api.rest.IndexerServiceAPI;
-import api.soap.IndexerAPI;
-import static api.soap.IndexerAPI.NAME;
-import static api.soap.IndexerAPI.NAMESPACE;
+import static api.soap.IndexerService.NAME;
+import static api.soap.IndexerService.NAMESPACE;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
-import static java.util.Collections.list;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.ws.rs.ProcessingException;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.client.Client;
@@ -42,6 +38,7 @@ import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import sys.storage.LocalVolatileStorage;
+import api.soap.IndexerService;
 
 /**
  *
@@ -67,7 +64,7 @@ public class IndexerServiceResources implements IndexerServiceAPI {
         producer = new KafkaProducer<>(properties);
         
         storage = replicationInit();
-        new Thread(new test(this)).start();
+        new Thread(new kafkaReplication(this)).start();
 
     }
 
@@ -219,7 +216,7 @@ public class IndexerServiceResources implements IndexerServiceAPI {
             URL wsURL = new URL(url);
             QName QNAME = new QName(NAMESPACE, NAME);
             Service service = Service.create(wsURL, QNAME);
-            IndexerAPI indexer = service.getPort(IndexerAPI.class);
+            IndexerService indexer = service.getPort(IndexerService.class);
             return indexer.removeDoc(id);
         } catch (MalformedURLException ex) {
             return false;
@@ -312,10 +309,10 @@ public class IndexerServiceResources implements IndexerServiceAPI {
         return new LocalVolatileStorage();
     }
 
-    class test implements Runnable {
+    static class kafkaReplication implements Runnable {
 
         IndexerServiceResources isr;
-        public test(IndexerServiceResources resources) {
+        public kafkaReplication(IndexerServiceResources resources) {
             isr = resources;
         }
 
@@ -334,7 +331,7 @@ public class IndexerServiceResources implements IndexerServiceAPI {
                     = new KafkaConsumer<>(props)) {
                 consumer.subscribe(Arrays.asList("Operation"));
                 while (true) {
-                    ConsumerRecords<String, byte[]> rec = consumer.poll(1000);
+                    ConsumerRecords<String, byte[]> rec = consumer.poll(10);
                     rec.forEach(r -> {
                         try {
                             String op = r.key();

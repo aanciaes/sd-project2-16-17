@@ -12,7 +12,7 @@ import javax.jws.WebService;
 import javax.xml.ws.WebFault;
 
 @WebService
-public interface IndexerAPI {
+public interface IndexerService {
 
     @WebFault
     class InvalidArgumentException extends Exception {
@@ -41,10 +41,11 @@ public interface IndexerAPI {
             super(msg);
         }
     }
+        
+    static final String NAME="IndexerService";
+    static final String NAMESPACE="http://sd2017";
+    static final String INTERFACE="api.soap.IndexerService";
 
-    static final String NAME = "IndexerService";
-    static final String NAMESPACE = "http://sd2017";
-    static final String INTERFACE = "api.soap.IndexerAPI";
 
     /* keywords contains a list of works separated by '+'
      * returns the list of urls of the documents stored in this server that contain all the keywords 
