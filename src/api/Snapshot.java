@@ -18,6 +18,10 @@ public class Snapshot implements Serializable{
     private long offset;
     
 
+    public Snapshot () {
+        
+    }
+    
     public Snapshot(LocalVolatileStorage actual_storage, long offset) {
         this.storage = actual_storage;
         this.offset = offset;

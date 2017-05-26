@@ -10,9 +10,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import com.google.common.collect.Sets;
 
 import api.Document;
+import java.io.Serializable;
 import utils.Utils;
 
-public class LocalVolatileStorage implements Storage {
+public class LocalVolatileStorage implements Storage, Serializable {
 
 	// Maps document ids to documents
 	Map<String, Document> docs = new ConcurrentHashMap<>();

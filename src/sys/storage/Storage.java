@@ -5,7 +5,7 @@ import java.util.List;
 import api.Document;
 import java.io.Serializable;
 
-public interface Storage extends Serializable {
+public interface Storage {
 
 	// Retrieves the list of urls of the documents that have all the keywords being searched
 	List<Document> search( List<String> keywords );
