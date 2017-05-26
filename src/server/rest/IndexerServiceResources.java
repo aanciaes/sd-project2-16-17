@@ -8,6 +8,7 @@ import api.Document;
 import api.Endpoint;
 import api.ServerConfig;
 import api.Serializer;
+import api.Snapshot;
 import api.rest.IndexerServiceAPI;
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -39,8 +40,10 @@ import sys.storage.LocalVolatileStorage;
 import api.soap.IndexerService;
 import static api.soap.IndexerService.NAME;
 import static api.soap.IndexerService.NAMESPACE;
+import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
 import javax.net.ssl.HttpsURLConnection;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import server.rest.IndexerServiceServer.InsecureHostnameVerifier;
 
 /**
@@ -65,7 +68,9 @@ public class IndexerServiceResources implements IndexerServiceAPI {
         properties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArraySerializer");
 
         producer = new KafkaProducer<>(properties);
-        
+        producer.send(new ProducerRecord<String, byte[]>("Operation", "dummy", "dummy".getBytes()));
+        producer.send(new ProducerRecord<String, byte[]>("Snapshots", "dummy", "dummy".getBytes()));
+
         storage = replicationInit();
         new Thread(new kafkaReplication(this)).start();
 
@@ -75,13 +80,13 @@ public class IndexerServiceResources implements IndexerServiceAPI {
     public List<String> search(String keywords) {
 
         System.err.println("SEARCH");
-       
+
         try {
             TimeUnit.MILLISECONDS.sleep(25);
         } catch (InterruptedException ex) {
             System.out.println("NAO DA!!!!!!!!!");
         }
-       
+
         //split query words
         String[] words = keywords.split(KEYWORD_SPLIT);
 
@@ -102,7 +107,7 @@ public class IndexerServiceResources implements IndexerServiceAPI {
 
     @Override
     public void add(String id, String secret, Document doc) {
-        
+
         if (!IndexerServiceServer.SECRET.equals(secret)) {
             throw new WebApplicationException(Response.Status.FORBIDDEN);
         }
@@ -112,7 +117,7 @@ public class IndexerServiceResources implements IndexerServiceAPI {
             System.err.println("NO ADD: " + doc.hashCode());
             throw new WebApplicationException(CONFLICT);
         }
-        
+
         try {
             producer.send(new ProducerRecord<String, byte[]>("Operation", "add", Serializer.serialize(doc)));
             //System.err.println(status ? "Document added successfully " : "An error occured. Document was not stored");
@@ -199,7 +204,7 @@ public class IndexerServiceResources implements IndexerServiceAPI {
     }
 
     public boolean removeSoap(String id, String url) {
-         try {
+        try {
             URL wsURL = new URL(url);
             QName QNAME = new QName(NAMESPACE, NAME);
 
@@ -246,7 +251,7 @@ public class IndexerServiceResources implements IndexerServiceAPI {
         if (storage.store(id, doc)) {
             System.err.println("ADD KAFKASSSS");
             lastOffset = offset;
-        }else{
+        } else {
             System.err.println("NO ADD KAFKA: " + doc.hashCode());
         }
     }
@@ -260,49 +265,52 @@ public class IndexerServiceResources implements IndexerServiceAPI {
 
     private LocalVolatileStorage replicationInit() {
 
-//        Properties props = new Properties();
-//        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "kafka1:9092,kafka2:9092,kafka3:9092");
-//        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-//        props.put(ConsumerConfig.GROUP_ID_CONFIG, "test" + System.nanoTime());
-//        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
-//        //props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,  "org.apache.kafka.common.serialization.StringDeserializer");
-//        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArrayDeserializer");
-//
-//        try (KafkaConsumer<String, byte[]> consumer = new KafkaConsumer<>(props)) {
-//            consumer.subscribe(Arrays.asList("Snapshots"));
-//
-//            ConsumerRecords<String, byte[]> rec = consumer.poll(1000);
-//            System.err.println("UVOU");
-//            try {
-//                if (rec.isEmpty()) {
-//                    System.err.println("Empty");
-//
-//                    return new LocalVolatileStorage();
-//                } else {
-//                    System.err.println("Not empty");
-//                    LocalVolatileStorage st = new LocalVolatileStorage();
-//                    long offset = -1;
-//                    Iterator<ConsumerRecord<String, byte[]>> it = rec.iterator();
-//                    while (it.hasNext()) {
-//                        ConsumerRecord<String, byte[]> r = it.next();
-//                        if (r.offset() > offset) {
-//                            offset = r.offset();
-//                            st = ((Snapshot) Serializer.deserialize(r.value())).getStorage();
-//                        }
-//                    }
-//
-//                    return st;
-//                }
-//            } catch (IOException | ClassNotFoundException ex) {
-//                ex.printStackTrace();
-//            }
-//        }
+        Properties props = new Properties();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "kafka1:9092,kafka2:9092,kafka3:9092");
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, "test" + System.nanoTime());
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
+        //props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,  "org.apache.kafka.common.serialization.StringDeserializer");
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArrayDeserializer");
+
+        try (KafkaConsumer<String, byte[]> consumer = new KafkaConsumer<>(props)) {
+            consumer.subscribe(Arrays.asList("Snapshots"));
+
+            ConsumerRecords<String, byte[]> rec = consumer.poll(1000);
+            System.err.println("UVOU");
+            try {
+                if (rec.isEmpty()) {
+                    System.err.println("Empty");
+
+                    return new LocalVolatileStorage();
+                } else {
+                    System.err.println("Not empty");
+                    LocalVolatileStorage st = new LocalVolatileStorage();
+                    long offset = -1;
+                    Iterator<ConsumerRecord<String, byte[]>> it = rec.iterator();
+                    while (it.hasNext()) {
+                        ConsumerRecord<String, byte[]> r = it.next();
+                        if (!r.key().equals("dummy")) {
+                            if (r.offset() > offset) {
+                                offset = r.offset();
+                                st = ((Snapshot) Serializer.deserialize(r.value())).getStorage();
+                            }
+                        }
+                    }
+
+                    return st;
+                }
+            } catch (IOException | ClassNotFoundException ex) {
+                ex.printStackTrace();
+            }
+        }
         return new LocalVolatileStorage();
     }
 
     static class kafkaReplication implements Runnable {
 
         IndexerServiceResources isr;
+
         public kafkaReplication(IndexerServiceResources resources) {
             isr = resources;
         }

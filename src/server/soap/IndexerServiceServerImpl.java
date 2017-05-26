@@ -65,6 +65,7 @@ public class IndexerServiceServerImpl implements IndexerService {
         properties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArraySerializer");
 
         producer = new KafkaProducer<>(properties);
+        producer.send(new ProducerRecord<String, byte[]>("Operation", "dummy", "dummy".getBytes()));
 
         storage = new LocalVolatileStorage();
         new Thread(new kafkaReplication(this)).start();
@@ -116,13 +117,7 @@ public class IndexerServiceServerImpl implements IndexerService {
         boolean status = storage.store(doc.id(), doc);
         System.out.println(status ? "Document added successfully " : "An error occured. Document was not stored");
         try {
-
             producer.send(new ProducerRecord<String, byte[]>("Operation", "add", Serializer.serialize(doc)));
-            try {
-                TimeUnit.MILLISECONDS.sleep(1000);
-            } catch (InterruptedException ex) {
-               
-            }
         } catch (IOException ex) {
             ex.printStackTrace();
         }
