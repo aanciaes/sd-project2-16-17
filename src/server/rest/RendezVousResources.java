@@ -11,8 +11,11 @@ import api.Zookeeper;
 import javax.ws.rs.WebApplicationException;
 
 import api.rest.RendezVousAPI;
+import com.google.gson.Gson;
 import java.io.IOException;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import static javax.ws.rs.core.Response.Status.*;
 
@@ -24,7 +27,7 @@ public class RendezVousResources implements RendezVousAPI {
     private Zookeeper zk;
 
     public RendezVousResources() {
-     
+
         try {
             this.zk = new Zookeeper("zoo1,zoo2,zoo3");
         } catch (Exception ex) {
@@ -35,20 +38,14 @@ public class RendezVousResources implements RendezVousAPI {
 
     @Override
     public Endpoint[] endpoints() {
-        List<byte[]> asList = zk.listValues("/sd/rendezvous");
-        Endpoint [] end = new Endpoint[asList.size()];
-        
-        
-        
-        try {
-            System.err.println(((Endpoint) Serializer.deserialize(asList.get(0))).getUrl());
-        } catch (IOException | ClassNotFoundException ex) {
-            ex.printStackTrace();
+        List<String> asList = zk.listValues();
+        Endpoint[] end = new Endpoint[asList.size()];
+
+        for (int i = 0; i < asList.size(); i++) {
+            end[i] = new Gson().fromJson(asList.get(i), Endpoint.class);
         }
-        
+
         return end;
-        //return asList.toArray(new Endpoint[asList.size()]);
-        //return db.values().toArray(new Endpoint[db.size()]);
     }
 
     @Override
@@ -59,7 +56,7 @@ public class RendezVousResources implements RendezVousAPI {
             throw new WebApplicationException(FORBIDDEN);
         }
 
-        if (!zk.saveValue("/sd/rendezvous/" + id, endpoint)) {
+        if (!zk.saveValue(id, endpoint)) {
             throw new WebApplicationException(CONFLICT);
         }
 
@@ -73,10 +70,8 @@ public class RendezVousResources implements RendezVousAPI {
             throw new WebApplicationException(FORBIDDEN);
         }
 
-//        if (!db.containsKey(id)) {
-//            throw new WebApplicationException(NOT_FOUND);
-//        } else {
-//            db.remove(id);
-//        }
+        if (!zk.removeValue(id)) {
+            throw new WebApplicationException(NOT_FOUND);
+        }
     }
 }
