@@ -4,8 +4,9 @@
  */
 package server.soap;
 
+import static api.soap.IndexerService.*;
+
 import api.Document;
-import api.Endpoint;
 import api.Serializer;
 import api.ServerConfig;
 import java.io.IOException;
@@ -14,17 +15,14 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 import javax.jws.WebService;
 import javax.ws.rs.ProcessingException;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.WebTarget;
-import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.xml.namespace.QName;
-import javax.xml.ws.Service;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -33,12 +31,10 @@ import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import sys.storage.LocalVolatileStorage;
 import api.soap.IndexerService;
-import static api.soap.IndexerService.NAME;
-import static api.soap.IndexerService.NAMESPACE;
 import java.util.concurrent.TimeUnit;
 import javax.net.ssl.HttpsURLConnection;
+import javax.xml.ws.Service;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import server.soap.IndexerServiceServer.InsecureHostnameVerifier;
 
 @WebService(
         serviceName = IndexerService.NAME,
@@ -134,58 +130,10 @@ public class IndexerServiceServerImpl implements IndexerService {
             throw new SecurityException();
         }
 
-        //Getting all indexers registered in rendezvous 
-        Client client = ClientBuilder.newBuilder().hostnameVerifier(new IndexerServiceServer.InsecureHostnameVerifier()).build();
-
-        Endpoint[] endpoints = null;
-        for (int retry = 0; retry < 3; retry++) {
-            try {
-                WebTarget target = client.target(rendezUrl);
-                endpoints = target.path("/")
-                        .request()
-                        .accept(MediaType.APPLICATION_JSON)
-                        .get(Endpoint[].class);
-                if (endpoints != null) {
-                    break;
-                }
-            } catch (ProcessingException ex) {
-                ex.printStackTrace();
-                //retry up to three times
-            }
-        }
-
-        boolean removed = false;
-        //Removing the asked document from all indexers
-        for (int i = 0; i < endpoints.length; i++) {
-            try {
-                Endpoint endpoint = endpoints[i];
-                String url = endpoint.getUrl();
-                Map<String, Object> map = endpoint.getAttributes();
-
-                //Defensive progamming checks if server is soap or rest and ignores other types
-                if (map.containsKey("type")) {
-                    if (map.get("type").equals("soap")) {
-                        if (removeSoap(id, url)) {
-                            removed = true;
-                        }
-                    }
-                    if (map.get("type").equals("rest")) {
-                        if (removeRest(id, url)) {
-                            removed = true;
-                        }
-                    }
-                } else { //if no type tag exists - treat as rest server
-                    if (removeRest(id, url)) {
-                        removed = true;
-                    }
-                }
-            } catch (Exception e) {
-                //Do nothing... continue to remove on other indexers
-            }
-        }
+        boolean removed = removeDoc(id);
+        
         try {
-            producer.send(new ProducerRecord<String, byte[]>("Operation", "add", Serializer.serialize(id)));
-            //System.err.println(status ? "Document added successfully " : "An error occured. Document was not stored");
+            producer.send(new ProducerRecord<String, byte[]>("Operation", "remove", Serializer.serialize(id)));
         } catch (IOException ex) {
             ex.printStackTrace();
         }
@@ -196,7 +144,6 @@ public class IndexerServiceServerImpl implements IndexerService {
         this.rendezUrl = rendezVousURL;
     }
 
-    @Override
     public boolean removeDoc(String id) {
         return storage.remove(id);
     }
@@ -204,15 +151,21 @@ public class IndexerServiceServerImpl implements IndexerService {
     public boolean removeSoap(String id, String url) {
 
         try {
-            URL wsURL = new URL(url);
-            QName QNAME = new QName(NAMESPACE, NAME);
+            URL wsURL = new URL(String.format("%s?wsdl", url));
+            System.err.println("wsURL: " + wsURL.toString());
 
-            HttpsURLConnection.setDefaultHostnameVerifier(new InsecureHostnameVerifier());
+            HttpsURLConnection.setDefaultHostnameVerifier(new IndexerServiceServer.InsecureHostnameVerifier());
+            QName qname = new QName(NAMESPACE, NAME);
+            System.err.println("QNAME: " + qname.toString());
 
-            Service service = Service.create(wsURL, QNAME);
+            Service service = Service.create(wsURL, qname);
 
+            System.err.println("BADJORAZ");
+//
             IndexerService indexer = service.getPort(IndexerService.class);
+            //System.err.println(indexer.removeDoc(id));
             return indexer.removeDoc(id);
+            //          return false;
         } catch (MalformedURLException e) {
             return false;
         }

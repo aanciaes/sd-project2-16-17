@@ -5,7 +5,6 @@
 package server.rest;
 
 import api.Document;
-import api.Endpoint;
 import api.ServerConfig;
 import api.Serializer;
 import api.Snapshot;
@@ -16,14 +15,12 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 import javax.ws.rs.ProcessingException;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.WebTarget;
-import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import static javax.ws.rs.core.Response.Status.CONFLICT;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
@@ -42,6 +39,8 @@ import static api.soap.IndexerService.NAME;
 import static api.soap.IndexerService.NAMESPACE;
 import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.net.ssl.HttpsURLConnection;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import server.rest.IndexerServiceServer.InsecureHostnameVerifier;
@@ -131,61 +130,17 @@ public class IndexerServiceResources implements IndexerServiceAPI {
         if (!IndexerServiceServer.SECRET.equals(secret)) {
             throw new WebApplicationException(Response.Status.FORBIDDEN);
         }
-        //Getting all indexers registered in rendezvous 
-        Client client = ClientBuilder.newBuilder().hostnameVerifier(new IndexerServiceServer.InsecureHostnameVerifier()).build();
 
-        Endpoint[] endpoints = null;
-        for (int retry = 0; retry < 3; retry++) {
-            try {
-                WebTarget target = client.target(rendezUrl);
-                endpoints = target.path("/")
-                        .request()
-                        .accept(MediaType.APPLICATION_JSON)
-                        .get(Endpoint[].class);
-                if (endpoints != null) {
-                    break;
-                }
-            } catch (ProcessingException ex) {
-                //retry up to three times
-            }
-        }
-        //
-
-        boolean removed = false;
-        //Removing the asked document from all indexers
-        for (int i = 0; i < endpoints.length; i++) {
-
-            Endpoint endpoint = endpoints[i];
-            String url = endpoint.getUrl();
-            Map<String, Object> map = endpoint.getAttributes();
-
-            //Defensive progamming checks if server is soap or rest and ignores other types
-            if (map.containsKey("type")) {
-                if (map.get("type").equals("soap")) {
-                    if (removeSoap(id, url)) {
-                        removed = true;
-                    }
-                }
-                if (map.get("type").equals("rest")) {
-                    if (removeRest(id, url)) {
-                        removed = true;
-                    }
-                }
-            } else { //if no type tag exists - treat as rest server
-                if (removeRest(id, url)) {
-                    removed = true;
-                }
-            }
-        }
-        if (!removed) { //No document removed
-            throw new WebApplicationException(CONFLICT);
-        }
+        
+            removeDoc(id);
+            
         try {
-            producer.send(new ProducerRecord<String, byte[]>("Operation", "add", Serializer.serialize(id)));
-            //System.err.println(status ? "Document added successfully " : "An error occured. Document was not stored");
+            producer.send(new ProducerRecord<String, byte[]>("Operation", "remove", Serializer.serialize(id)));
         } catch (IOException ex) {
-            ex.printStackTrace();
+            Logger.getLogger(IndexerServiceResources.class.getName()).log(Level.SEVERE, null, ex);
         }
+        
+ 
     }
 
     @Override
