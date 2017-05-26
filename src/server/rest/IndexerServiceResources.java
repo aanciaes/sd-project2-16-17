@@ -9,8 +9,6 @@ import api.Endpoint;
 import api.ServerConfig;
 import api.Serializer;
 import api.rest.IndexerServiceAPI;
-import static api.soap.IndexerService.NAME;
-import static api.soap.IndexerService.NAMESPACE;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -39,6 +37,11 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import sys.storage.LocalVolatileStorage;
 import api.soap.IndexerService;
+import static api.soap.IndexerService.NAME;
+import static api.soap.IndexerService.NAMESPACE;
+import java.util.concurrent.TimeUnit;
+import javax.net.ssl.HttpsURLConnection;
+import server.rest.IndexerServiceServer.InsecureHostnameVerifier;
 
 /**
  *
@@ -72,29 +75,13 @@ public class IndexerServiceResources implements IndexerServiceAPI {
     public List<String> search(String keywords) {
 
         System.err.println("SEARCH");
-        
-//        try {
-//            List<String> list = new ArrayList<String>();
-//            list.add("badjoraz");
-//            list.add("ola");
-//
-//            Properties properties = new Properties();
-//
-//            properties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "kafka1:9092,kafka2:9092,kafka3:9092");
-//            properties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
-//            //properties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArraySerializer");
-//            properties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArraySerializer");
-//
-//            try (Producer<String, byte[]> producer
-//                    = new KafkaProducer<>(properties)) {
-//                producer.send(new ProducerRecord<String, byte[]>("Operation", "add", Serializer.serialize(new Document(keywords, list))));
-//            }
-//
-//            //Producer<String, byte[]> producer = new KafkaProducer<>(properties);
-//        } catch (IOException ex) {
-//            ex.printStackTrace();
-//        }
-
+       
+        try {
+            TimeUnit.MILLISECONDS.sleep(25);
+        } catch (InterruptedException ex) {
+            System.out.println("NAO DA!!!!!!!!!");
+        }
+       
         //split query words
         String[] words = keywords.split(KEYWORD_SPLIT);
 
@@ -212,13 +199,17 @@ public class IndexerServiceResources implements IndexerServiceAPI {
     }
 
     public boolean removeSoap(String id, String url) {
-        try {
+         try {
             URL wsURL = new URL(url);
             QName QNAME = new QName(NAMESPACE, NAME);
+
+            HttpsURLConnection.setDefaultHostnameVerifier(new InsecureHostnameVerifier());
+
             Service service = Service.create(wsURL, QNAME);
+
             IndexerService indexer = service.getPort(IndexerService.class);
             return indexer.removeDoc(id);
-        } catch (MalformedURLException ex) {
+        } catch (MalformedURLException e) {
             return false;
         }
     }
@@ -226,7 +217,7 @@ public class IndexerServiceResources implements IndexerServiceAPI {
     private boolean removeRest(String id, String url) throws WebApplicationException {
         for (int retry = 0; retry < 3; retry++) {
             try {
-                Client client = ClientBuilder.newBuilder().hostnameVerifier(new IndexerServiceServer.InsecureHostnameVerifier()).build();
+                Client client = ClientBuilder.newBuilder().hostnameVerifier(new InsecureHostnameVerifier()).build();
                 WebTarget target = client.target(url);
                 Response response = target.path("/remove/" + id).request().delete();
 
@@ -253,7 +244,7 @@ public class IndexerServiceResources implements IndexerServiceAPI {
     private void addKafka(String id, Document doc, long offset) {
 
         if (storage.store(id, doc)) {
-            System.out.println("true");
+            System.err.println("ADD KAFKASSSS");
             lastOffset = offset;
         }else{
             System.err.println("NO ADD KAFKA: " + doc.hashCode());
@@ -262,7 +253,7 @@ public class IndexerServiceResources implements IndexerServiceAPI {
 
     private void removeKafka(String id, long offset) {
         if (storage.remove(id)) {
-            System.out.println("true");
+            System.out.println("REMOVE KAFKA");
             lastOffset = offset;
         }
     }
@@ -324,7 +315,6 @@ public class IndexerServiceResources implements IndexerServiceAPI {
             props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
             props.put(ConsumerConfig.GROUP_ID_CONFIG, "test" + System.nanoTime());
             props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
-            //props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,  "org.apache.kafka.common.serialization.StringDeserializer");
             props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArrayDeserializer");
 
             try (KafkaConsumer<String, byte[]> consumer
@@ -338,6 +328,7 @@ public class IndexerServiceResources implements IndexerServiceAPI {
                             switch (op) {
                                 case "add":
                                     Document doc = ((Document) Serializer.deserialize(r.value()));
+                                    System.err.println("OFFSET ORDER: " + r.offset());
                                     isr.addKafka(doc.id(), doc, r.offset());
                                     break;
                                 case "remove":

@@ -33,7 +33,12 @@ import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import sys.storage.LocalVolatileStorage;
 import api.soap.IndexerService;
+import static api.soap.IndexerService.NAME;
+import static api.soap.IndexerService.NAMESPACE;
+import java.util.concurrent.TimeUnit;
+import javax.net.ssl.HttpsURLConnection;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import server.soap.IndexerServiceServer.InsecureHostnameVerifier;
 
 @WebService(
         serviceName = IndexerService.NAME,
@@ -44,7 +49,7 @@ public class IndexerServiceServerImpl implements IndexerService {
 
     private LocalVolatileStorage storage = new LocalVolatileStorage(); //Documents "database"
     private String rendezUrl; //RendezVous location
-
+    private int i;
     private static final String KEYWORD_SPLIT = "[ \\+]";
     private static final int SUCCESS_NOCONTENT = 204;
 
@@ -61,16 +66,24 @@ public class IndexerServiceServerImpl implements IndexerService {
 
         producer = new KafkaProducer<>(properties);
 
-        storage = replicationInit();
+        storage = new LocalVolatileStorage();
         new Thread(new kafkaReplication(this)).start();
     }
 
     @Override
     public List<String> search(String keywords) throws InvalidArgumentException {
+
         if (keywords == null) {
             throw new InvalidArgumentException();
         }
         try {
+
+            try {
+                TimeUnit.MILLISECONDS.sleep(50);
+            } catch (InterruptedException ex) {
+                System.out.println("NAO DA!!!!!!!!!");
+            }
+
             //Split query words
             String[] split = keywords.split(KEYWORD_SPLIT);
 
@@ -85,6 +98,7 @@ public class IndexerServiceServerImpl implements IndexerService {
             }
             return response;
         } catch (Exception e) {
+            e.printStackTrace();
             return new ArrayList<>(); // On error, return empty list
         }
     }
@@ -98,19 +112,21 @@ public class IndexerServiceServerImpl implements IndexerService {
         if (!IndexerServiceServer.SECRET.equals(secret)) {
             throw new SecurityException();
         }
+
+        boolean status = storage.store(doc.id(), doc);
+        System.out.println(status ? "Document added successfully " : "An error occured. Document was not stored");
         try {
-            boolean status = storage.store(doc.id(), doc);
-            System.err.println(status ? "Document added successfully " : "An error occured. Document was not stored");
+
+            producer.send(new ProducerRecord<String, byte[]>("Operation", "add", Serializer.serialize(doc)));
             try {
-                producer.send(new ProducerRecord<String, byte[]>("Operation", "add", Serializer.serialize(doc)));
-                //System.err.println(status ? "Document added successfully " : "An error occured. Document was not stored");
-            } catch (IOException ex) {
-                ex.printStackTrace();
+                TimeUnit.MILLISECONDS.sleep(1000);
+            } catch (InterruptedException ex) {
+               
             }
-            return status;
-        } catch (Exception e) {
-            return false;
+        } catch (IOException ex) {
+            ex.printStackTrace();
         }
+        return status;
     }
 
     @Override
@@ -195,7 +211,11 @@ public class IndexerServiceServerImpl implements IndexerService {
         try {
             URL wsURL = new URL(url);
             QName QNAME = new QName(NAMESPACE, NAME);
+
+            HttpsURLConnection.setDefaultHostnameVerifier(new InsecureHostnameVerifier());
+
             Service service = Service.create(wsURL, QNAME);
+
             IndexerService indexer = service.getPort(IndexerService.class);
             return indexer.removeDoc(id);
         } catch (MalformedURLException e) {
@@ -276,7 +296,7 @@ public class IndexerServiceServerImpl implements IndexerService {
     private void addKafka(String id, Document doc, long offset) {
 
         if (storage.store(id, doc)) {
-            System.out.println("true");
+            System.out.println("ADD KAFKASSSS");
             lastOffset = offset;
         } else {
             System.err.println("NO ADD KAFKA: " + doc.hashCode());

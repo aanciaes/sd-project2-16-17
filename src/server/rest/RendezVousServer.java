@@ -4,6 +4,7 @@
  */
 package server.rest;
 
+import api.Zookeeper;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
@@ -45,10 +46,10 @@ public class RendezVousServer {
     private static Map<String, Long> servers;
     
     private static RendezVousResources resources;
-    
 
     public static void main(String[] args) throws Exception {
        
+        
         servers = new ConcurrentHashMap<>(); 
         int port = 8080;
         if (args.length > 0) {
@@ -75,7 +76,8 @@ public class RendezVousServer {
 
         System.err.println("SSL REST RendezVous Server ready @ " + baseUri);
         //
-
+       
+        
         //Creating Multicast Socket
         final InetAddress address_multi = InetAddress.getByName(MULTICAST_ADDRESS);
         if (!address_multi.isMulticastAddress()) {

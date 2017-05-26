@@ -5,12 +5,14 @@
 package server.rest;
 
 import api.Endpoint;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import api.Serializer;
+import api.Zookeeper;
 
 import javax.ws.rs.WebApplicationException;
 
 import api.rest.RendezVousAPI;
+import java.io.IOException;
+import java.util.List;
 
 import static javax.ws.rs.core.Response.Status.*;
 
@@ -19,11 +21,34 @@ import static javax.ws.rs.core.Response.Status.*;
  */
 public class RendezVousResources implements RendezVousAPI {
 
-    private Map<String, Endpoint> db = new ConcurrentHashMap<>();
+    private Zookeeper zk;
+
+    public RendezVousResources() {
+     
+        try {
+            this.zk = new Zookeeper("zoo1,zoo2,zoo3");
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            System.out.println("Zookeeper failed to connect!");
+        }
+    }
 
     @Override
     public Endpoint[] endpoints() {
-        return db.values().toArray(new Endpoint[db.size()]);
+        List<byte[]> asList = zk.listValues("/sd/rendezvous");
+        Endpoint [] end = new Endpoint[asList.size()];
+        
+        
+        
+        try {
+            System.err.println(((Endpoint) Serializer.deserialize(asList.get(0))).getUrl());
+        } catch (IOException | ClassNotFoundException ex) {
+            ex.printStackTrace();
+        }
+        
+        return end;
+        //return asList.toArray(new Endpoint[asList.size()]);
+        //return db.values().toArray(new Endpoint[db.size()]);
     }
 
     @Override
@@ -34,11 +59,10 @@ public class RendezVousResources implements RendezVousAPI {
             throw new WebApplicationException(FORBIDDEN);
         }
 
-        if (db.containsKey(id)) {
+        if (!zk.saveValue("/sd/rendezvous/" + id, endpoint)) {
             throw new WebApplicationException(CONFLICT);
-        } else {
-            db.put(id, endpoint);
         }
+
     }
 
     @Override
@@ -49,10 +73,10 @@ public class RendezVousResources implements RendezVousAPI {
             throw new WebApplicationException(FORBIDDEN);
         }
 
-        if (!db.containsKey(id)) {
-            throw new WebApplicationException(NOT_FOUND);
-        } else {
-            db.remove(id);
-        }
+//        if (!db.containsKey(id)) {
+//            throw new WebApplicationException(NOT_FOUND);
+//        } else {
+//            db.remove(id);
+//        }
     }
 }

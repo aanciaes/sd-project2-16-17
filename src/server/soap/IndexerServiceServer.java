@@ -56,7 +56,7 @@ public class IndexerServiceServer {
 
     public static void main(String[] args) throws Exception {
 
-        int port = 8080;
+        int port = 8081;
         if (args.length > 0) {
             SECRET = args[0];
             if (args.length > 1) {
