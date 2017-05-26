@@ -9,6 +9,7 @@ import static api.soap.IndexerService.*;
 import api.Document;
 import api.Serializer;
 import api.ServerConfig;
+import api.Snapshot;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -31,9 +32,11 @@ import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import sys.storage.LocalVolatileStorage;
 import api.soap.IndexerService;
+import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
 import javax.net.ssl.HttpsURLConnection;
 import javax.xml.ws.Service;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
 
 @WebService(
@@ -51,6 +54,7 @@ public class IndexerServiceServerImpl implements IndexerService {
 
     private Producer<String, byte[]> producer;
     private long lastOffset;
+    private long lastSnapshot;
 
     public IndexerServiceServerImpl() {
         Properties properties = new Properties();
@@ -131,11 +135,13 @@ public class IndexerServiceServerImpl implements IndexerService {
         }
 
         boolean removed = removeDoc(id);
-        
-        try {
-            producer.send(new ProducerRecord<String, byte[]>("Operation", "remove", Serializer.serialize(id)));
-        } catch (IOException ex) {
-            ex.printStackTrace();
+
+        if (removed) {
+            try {
+                producer.send(new ProducerRecord<String, byte[]>("Operation", "remove", Serializer.serialize(id)));
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
         }
         return removed;
     }
@@ -201,61 +207,75 @@ public class IndexerServiceServerImpl implements IndexerService {
 
     private LocalVolatileStorage replicationInit() {
 
-//        Properties props = new Properties();
-//        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "kafka1:9092,kafka2:9092,kafka3:9092");
-//        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-//        props.put(ConsumerConfig.GROUP_ID_CONFIG, "test" + System.nanoTime());
-//        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
-//        //props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,  "org.apache.kafka.common.serialization.StringDeserializer");
-//        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArrayDeserializer");
-//
-//        try (KafkaConsumer<String, byte[]> consumer = new KafkaConsumer<>(props)) {
-//            consumer.subscribe(Arrays.asList("Snapshots"));
-//
-//            ConsumerRecords<String, byte[]> rec = consumer.poll(1000);
-//            System.err.println("UVOU");
-//            try {
-//                if (rec.isEmpty()) {
-//                    System.err.println("Empty");
-//
-//                    return new LocalVolatileStorage();
-//                } else {
-//                    System.err.println("Not empty");
-//                    LocalVolatileStorage st = new LocalVolatileStorage();
-//                    long offset = -1;
-//                    Iterator<ConsumerRecord<String, byte[]>> it = rec.iterator();
-//                    while (it.hasNext()) {
-//                        ConsumerRecord<String, byte[]> r = it.next();
-//                        if (r.offset() > offset) {
-//                            offset = r.offset();
-//                            st = ((Snapshot) Serializer.deserialize(r.value())).getStorage();
-//                        }
-//                    }
-//
-//                    return st;
-//                }
-//            } catch (IOException | ClassNotFoundException ex) {
-//                ex.printStackTrace();
-//            }
-//        }
+        Properties props = new Properties();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "kafka1:9092,kafka2:9092,kafka3:9092");
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, "test" + System.nanoTime());
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
+        //props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,  "org.apache.kafka.common.serialization.StringDeserializer");
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArrayDeserializer");
+
+        try (KafkaConsumer<String, byte[]> consumer = new KafkaConsumer<>(props)) {
+            consumer.subscribe(Arrays.asList("Snapshots"));
+
+            ConsumerRecords<String, byte[]> rec = consumer.poll(1000);
+
+            Snapshot snap = null;
+            long offset = -1;
+            Iterator<ConsumerRecord<String, byte[]>> it = rec.iterator();
+            while (it.hasNext()) {
+                ConsumerRecord<String, byte[]> r = it.next();
+                if (!r.key().equals("dummy")) {
+                    if (r.offset() > offset) {
+                        offset = r.offset();
+                        snap = ((Snapshot) Serializer.deserialize(r.value()));
+                    }
+                }
+            }
+            if (snap != null) {
+                lastOffset = snap.getOffset();
+                System.err.println(lastOffset);
+                return snap.getStorage();
+            }
+        } catch (ClassNotFoundException | IOException ex) {
+            ex.printStackTrace();
+        }
         return new LocalVolatileStorage();
+    }
+
+    public void sendSnapshot() {
+        if (System.currentTimeMillis() - lastSnapshot > 60000) {
+            try {
+                producer.send(new ProducerRecord<String, byte[]>("Snapshots", "snapshot", Serializer.serialize(new Snapshot(storage, lastOffset))));
+                lastSnapshot = System.currentTimeMillis();
+                System.err.println("Snapshot sent");
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
+        }
     }
 
     private void addKafka(String id, Document doc, long offset) {
 
         if (storage.store(id, doc)) {
             System.out.println("ADD KAFKASSSS");
-            lastOffset = offset;
+
         } else {
             System.err.println("NO ADD KAFKA: " + doc.hashCode());
         }
+        lastOffset = offset;
     }
 
     private void removeKafka(String id, long offset) {
         if (storage.remove(id)) {
             System.out.println("true");
-            lastOffset = offset;
+
         }
+        lastOffset = offset;
+    }
+
+    private long getLastOffset() {
+        return lastOffset;
     }
 
     static class kafkaReplication implements Runnable {
@@ -274,28 +294,35 @@ public class IndexerServiceServerImpl implements IndexerService {
             props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
             props.put(ConsumerConfig.GROUP_ID_CONFIG, "test" + System.nanoTime());
             props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
-            //props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,  "org.apache.kafka.common.serialization.StringDeserializer");
             props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArrayDeserializer");
 
             try (KafkaConsumer<String, byte[]> consumer
                     = new KafkaConsumer<>(props)) {
                 consumer.subscribe(Arrays.asList("Operation"));
                 while (true) {
+
+                    isi.sendSnapshot();
+
                     ConsumerRecords<String, byte[]> rec = consumer.poll(10);
                     rec.forEach(r -> {
                         try {
                             String op = r.key();
-                            switch (op) {
-                                case "add":
-                                    Document doc = ((Document) Serializer.deserialize(r.value()));
-                                    isi.addKafka(doc.id(), doc, r.offset());
-                                    break;
-                                case "remove":
-                                    String id = ((String) Serializer.deserialize(r.value()));
-                                    isi.removeKafka(id, r.offset());
-                                    break;
-                                default:
-                                    break;
+
+                            if (r.offset() > isi.getLastOffset()) {
+                                switch (op) {
+                                    case "add":
+                                        Document doc = ((Document) Serializer.deserialize(r.value()));
+                                        System.err.println("OFFSET ORDER: " + r.offset());
+                                        isi.addKafka(doc.id(), doc, r.offset());
+                                        break;
+                                    case "remove":
+                                        String id = ((String) Serializer.deserialize(r.value()));
+                                        System.err.println("OFFSET ORDER: " + r.offset());
+                                        isi.removeKafka(id, r.offset());
+                                        break;
+                                    default:
+                                        break;
+                                }
                             }
                         } catch (IOException | ClassNotFoundException ex) {
                             ex.printStackTrace();
