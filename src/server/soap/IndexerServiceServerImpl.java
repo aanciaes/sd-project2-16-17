@@ -11,19 +11,11 @@ import api.Serializer;
 import api.ServerConfig;
 import api.Snapshot;
 import java.io.IOException;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import javax.jws.WebService;
-import javax.ws.rs.ProcessingException;
-import javax.ws.rs.client.Client;
-import javax.ws.rs.client.ClientBuilder;
-import javax.ws.rs.client.WebTarget;
-import javax.ws.rs.core.Response;
-import javax.xml.namespace.QName;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -34,8 +26,6 @@ import sys.storage.LocalVolatileStorage;
 import api.soap.IndexerService;
 import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
-import javax.net.ssl.HttpsURLConnection;
-import javax.xml.ws.Service;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
 
@@ -47,28 +37,52 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 public class IndexerServiceServerImpl implements IndexerService {
 
     private LocalVolatileStorage storage = new LocalVolatileStorage(); //Documents "database"
-    private String rendezUrl; //RendezVous location
-    private int i;
     private static final String KEYWORD_SPLIT = "[ \\+]";
     private static final int SUCCESS_NOCONTENT = 204;
+    private static final String DUMMY = "dummy";
+    public static final String SNAPSHOT_TOPIC = "Snapshots";
+    public static final String OPERATION_TOPIC = "Operation";
+    public static final String ADD_OP = "add";
+    public static final String REMOVE_OP = "remove";
+
+    private static final long SNAP_TIME = 120000; //2 minutes
 
     private Producer<String, byte[]> producer;
     private long lastOffset;
     private long lastSnapshot;
 
     public IndexerServiceServerImpl() {
+
+        lastOffset = 0;
+        lastSnapshot = 0;
+
+        producer = new KafkaProducer<>(setProducerProperties());
+        producer.send(new ProducerRecord<String, byte[]>(OPERATION_TOPIC, DUMMY, DUMMY.getBytes()));
+        producer.send(new ProducerRecord<String, byte[]>(SNAPSHOT_TOPIC, DUMMY, DUMMY.getBytes()));
+
+        storage = new LocalVolatileStorage();
+        new Thread(new kafkaReplication(this)).start();
+    }
+
+    private Properties setProducerProperties() {
         Properties properties = new Properties();
 
         properties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "kafka1:9092,kafka2:9092,kafka3:9092");
         properties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
-        //properties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArraySerializer");
         properties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArraySerializer");
 
-        producer = new KafkaProducer<>(properties);
-        producer.send(new ProducerRecord<String, byte[]>("Operation", "dummy", "dummy".getBytes()));
+        return properties;
+    }
 
-        storage = new LocalVolatileStorage();
-        new Thread(new kafkaReplication(this)).start();
+    private Properties setConsumerProperties() {
+        Properties props = new Properties();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "kafka1:9092,kafka2:9092,kafka3:9092");
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, "test" + System.nanoTime());
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArrayDeserializer");
+
+        return props;
     }
 
     @Override
@@ -82,7 +96,7 @@ public class IndexerServiceServerImpl implements IndexerService {
             try {
                 TimeUnit.MILLISECONDS.sleep(50);
             } catch (InterruptedException ex) {
-                System.out.println("NAO DA!!!!!!!!!");
+                //ignore
             }
 
             //Split query words
@@ -117,7 +131,7 @@ public class IndexerServiceServerImpl implements IndexerService {
         boolean status = storage.store(doc.id(), doc);
         System.out.println(status ? "Document added successfully " : "An error occured. Document was not stored");
         try {
-            producer.send(new ProducerRecord<String, byte[]>("Operation", "add", Serializer.serialize(doc)));
+            producer.send(new ProducerRecord<String, byte[]>(OPERATION_TOPIC, ADD_OP, Serializer.serialize(doc)));
         } catch (IOException ex) {
             ex.printStackTrace();
         }
@@ -138,7 +152,7 @@ public class IndexerServiceServerImpl implements IndexerService {
 
         if (removed) {
             try {
-                producer.send(new ProducerRecord<String, byte[]>("Operation", "remove", Serializer.serialize(id)));
+                producer.send(new ProducerRecord<String, byte[]>(OPERATION_TOPIC, REMOVE_OP, Serializer.serialize(id)));
             } catch (IOException ex) {
                 ex.printStackTrace();
             }
@@ -146,52 +160,8 @@ public class IndexerServiceServerImpl implements IndexerService {
         return removed;
     }
 
-    public void setUrl(String rendezVousURL) {
-        this.rendezUrl = rendezVousURL;
-    }
-
     public boolean removeDoc(String id) {
         return storage.remove(id);
-    }
-
-    public boolean removeSoap(String id, String url) {
-
-        try {
-            URL wsURL = new URL(String.format("%s?wsdl", url));
-            System.err.println("wsURL: " + wsURL.toString());
-
-            HttpsURLConnection.setDefaultHostnameVerifier(new IndexerServiceServer.InsecureHostnameVerifier());
-            QName qname = new QName(NAMESPACE, NAME);
-            System.err.println("QNAME: " + qname.toString());
-
-            Service service = Service.create(wsURL, qname);
-
-            System.err.println("BADJORAZ");
-//
-            IndexerService indexer = service.getPort(IndexerService.class);
-            //System.err.println(indexer.removeDoc(id));
-            return indexer.removeDoc(id);
-            //          return false;
-        } catch (MalformedURLException e) {
-            return false;
-        }
-    }
-
-    private boolean removeRest(String id, String url) {
-        for (int retry = 0; retry < 3; retry++) {
-            try {
-                //Getting all indexers registered in rendezvous 
-                Client client = ClientBuilder.newBuilder().hostnameVerifier(new IndexerServiceServer.InsecureHostnameVerifier()).build();
-                WebTarget target = client.target(url);
-                Response response = target.path("/remove/" + id).request().delete();
-
-                return response.getStatus() == SUCCESS_NOCONTENT;
-
-            } catch (ProcessingException x) {
-                //retry method up to three times
-            }
-        }
-        return false;
     }
 
     @Override
@@ -207,16 +177,8 @@ public class IndexerServiceServerImpl implements IndexerService {
 
     private LocalVolatileStorage replicationInit() {
 
-        Properties props = new Properties();
-        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "kafka1:9092,kafka2:9092,kafka3:9092");
-        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        props.put(ConsumerConfig.GROUP_ID_CONFIG, "test" + System.nanoTime());
-        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
-        //props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,  "org.apache.kafka.common.serialization.StringDeserializer");
-        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArrayDeserializer");
-
-        try (KafkaConsumer<String, byte[]> consumer = new KafkaConsumer<>(props)) {
-            consumer.subscribe(Arrays.asList("Snapshots"));
+        try (KafkaConsumer<String, byte[]> consumer = new KafkaConsumer<>(setConsumerProperties())) {
+            consumer.subscribe(Arrays.asList(SNAPSHOT_TOPIC));
 
             ConsumerRecords<String, byte[]> rec = consumer.poll(1000);
 
@@ -225,7 +187,7 @@ public class IndexerServiceServerImpl implements IndexerService {
             Iterator<ConsumerRecord<String, byte[]>> it = rec.iterator();
             while (it.hasNext()) {
                 ConsumerRecord<String, byte[]> r = it.next();
-                if (!r.key().equals("dummy")) {
+                if (!r.key().equals(DUMMY)) {
                     if (r.offset() > offset) {
                         offset = r.offset();
                         snap = ((Snapshot) Serializer.deserialize(r.value()));
@@ -244,9 +206,9 @@ public class IndexerServiceServerImpl implements IndexerService {
     }
 
     public void sendSnapshot() {
-        if (System.currentTimeMillis() - lastSnapshot > 60000) {
+        if (System.currentTimeMillis() - lastSnapshot > SNAP_TIME) {
             try {
-                producer.send(new ProducerRecord<String, byte[]>("Snapshots", "snapshot", Serializer.serialize(new Snapshot(storage, lastOffset))));
+                producer.send(new ProducerRecord<String, byte[]>(SNAPSHOT_TOPIC, "snapshot", Serializer.serialize(new Snapshot(storage, lastOffset))));
                 lastSnapshot = System.currentTimeMillis();
                 System.err.println("Snapshot sent");
             } catch (IOException ex) {
@@ -256,21 +218,12 @@ public class IndexerServiceServerImpl implements IndexerService {
     }
 
     private void addKafka(String id, Document doc, long offset) {
-
-        if (storage.store(id, doc)) {
-            System.out.println("ADD KAFKASSSS");
-
-        } else {
-            System.err.println("NO ADD KAFKA: " + doc.hashCode());
-        }
+        storage.store(id, doc);
         lastOffset = offset;
     }
 
     private void removeKafka(String id, long offset) {
-        if (storage.remove(id)) {
-            System.out.println("true");
-
-        }
+        storage.remove(id);
         lastOffset = offset;
     }
 
@@ -289,16 +242,9 @@ public class IndexerServiceServerImpl implements IndexerService {
         @Override
         public void run() {
 
-            Properties props = new Properties();
-            props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "kafka1:9092,kafka2:9092,kafka3:9092");
-            props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-            props.put(ConsumerConfig.GROUP_ID_CONFIG, "test" + System.nanoTime());
-            props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
-            props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArrayDeserializer");
-
             try (KafkaConsumer<String, byte[]> consumer
-                    = new KafkaConsumer<>(props)) {
-                consumer.subscribe(Arrays.asList("Operation"));
+                    = new KafkaConsumer<>(isi.setConsumerProperties())) {
+                consumer.subscribe(Arrays.asList(OPERATION_TOPIC));
                 while (true) {
 
                     isi.sendSnapshot();
@@ -310,14 +256,12 @@ public class IndexerServiceServerImpl implements IndexerService {
 
                             if (r.offset() > isi.getLastOffset()) {
                                 switch (op) {
-                                    case "add":
+                                    case ADD_OP:
                                         Document doc = ((Document) Serializer.deserialize(r.value()));
-                                        System.err.println("OFFSET ORDER: " + r.offset());
                                         isi.addKafka(doc.id(), doc, r.offset());
                                         break;
-                                    case "remove":
+                                    case REMOVE_OP:
                                         String id = ((String) Serializer.deserialize(r.value()));
-                                        System.err.println("OFFSET ORDER: " + r.offset());
                                         isi.removeKafka(id, r.offset());
                                         break;
                                     default:

@@ -1,3 +1,7 @@
+/*
+ * @author: Miguel Anciaes n43367 (m.anciaes@campus.fct.unl.pt)
+ * @author: Ricardo Amaral n43368 (rm.amaral@campus.fct.unl.pt)
+ */
 package server.rest.proxy;
 
 import api.Cache;
@@ -18,7 +22,7 @@ public class CacheSystem implements Cache {
 
     public CacheSystem() {
         tweets = new ConcurrentHashMap();
-        new Thread (new updateCache()).start();
+        new Thread(new updateCache()).start();
     }
 
     @Override
@@ -73,19 +77,11 @@ public class CacheSystem implements Cache {
             return tweets;
         }
 
-        public int getHits() {
-            return hits;
-        }
-
         public Long getFirstAccess() {
             return firstAccess;
         }
-
-        public void hit() {
-            hits++;
-        }
     }
-    
+
     /**
      * Thread class that deletes old objects from cache
      */
@@ -96,8 +92,8 @@ public class CacheSystem implements Cache {
             while (true) {
 
                 try {
-                   updateCache();
-                   Thread.sleep(3000);
+                    updateCache();
+                    Thread.sleep(3000);
                 } catch (InterruptedException ex) {
                     //Some error occured
                 }

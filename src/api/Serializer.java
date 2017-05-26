@@ -1,7 +1,6 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * @author: Miguel Anciaes n43367 (m.anciaes@campus.fct.unl.pt)
+ * @author: Ricardo Amaral n43368 (rm.amaral@campus.fct.unl.pt)
  */
 package api;
 
@@ -19,6 +18,7 @@ import java.io.ObjectOutputStream;
  */
 public class Serializer {
 
+    //Serializes an object. Transforms an object to byte array
     public static byte[] serialize(Object obj) throws IOException {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         ObjectOutput out = null;
@@ -37,6 +37,7 @@ public class Serializer {
         }
     }
 
+    //Deserializes an object. Transforms a byte array in an Object
     public static Object deserialize(byte[] data) throws IOException, ClassNotFoundException {
         ByteArrayInputStream bis = new ByteArrayInputStream(data);
         ObjectInput in = null;

@@ -5,22 +5,18 @@
 package server.rest;
 
 import api.Endpoint;
-import api.Serializer;
 import api.Zookeeper;
 
 import javax.ws.rs.WebApplicationException;
 
 import api.rest.RendezVousAPI;
 import com.google.gson.Gson;
-import java.io.IOException;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import static javax.ws.rs.core.Response.Status.*;
 
 /**
- * Rendezvous Restful service implementation
+ * Rendezvous Restful service implementation Replicated using ZooKeeper service
  */
 public class RendezVousResources implements RendezVousAPI {
 

@@ -4,7 +4,6 @@
  */
 package server.rest;
 
-import api.Zookeeper;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
@@ -24,7 +23,7 @@ import org.glassfish.jersey.server.ResourceConfig;
 public class RendezVousServer {
 
     public static String SECRET = "secret";
-    
+
     //Configuration IP, listen on all IPv4 addresses on local machine
     private static final String ZERO_IP = "0.0.0.0";
     //Failure detection set to 5 seconds
@@ -44,16 +43,15 @@ public class RendezVousServer {
 
     //Failure detection map
     private static Map<String, Long> servers;
-    
+
     private static RendezVousResources resources;
 
     public static void main(String[] args) throws Exception {
-       
-        
-        servers = new ConcurrentHashMap<>(); 
+
+        servers = new ConcurrentHashMap<>();
         int port = 8080;
         if (args.length > 0) {
-            SECRET=args[0];
+            SECRET = args[0];
         }
 
         //Setting server up
@@ -76,8 +74,7 @@ public class RendezVousServer {
 
         System.err.println("SSL REST RendezVous Server ready @ " + baseUri);
         //
-       
-        
+
         //Creating Multicast Socket
         final InetAddress address_multi = InetAddress.getByName(MULTICAST_ADDRESS);
         if (!address_multi.isMulticastAddress()) {

@@ -66,14 +66,16 @@ public class TwitterProxyResources implements api.rest.IndexerServiceAPI {
                 service.signRequest(accessToken, req);
                 final com.github.scribejava.core.model.Response res = service.execute(req);
 
-                System.err.println("URL: " + req.getCompleteUrl());
-                System.err.println("REST code:" + res.getCode());
+                if (res.getCode() == 200) {
 
-                List<String> tweets = parseJson(res.getBody());
-                cache.store(hash, tweets);
+                    List<String> tweets = parseJson(res.getBody());
+                    cache.store(hash, tweets);
 
-                System.err.println("Cache miss");
-                return tweets;
+                    System.err.println("Cache miss");
+                    return tweets;
+                }
+                //error
+                return null;
             } else {
                 System.err.println("Cache hit");
                 return cache.getTweets(hash);

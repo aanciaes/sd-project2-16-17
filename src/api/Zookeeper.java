@@ -1,7 +1,6 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * @author: Miguel Anciaes n43367 (m.anciaes@campus.fct.unl.pt)
+ * @author: Ricardo Amaral n43368 (rm.amaral@campus.fct.unl.pt)
  */
 package api;
 
@@ -18,8 +17,6 @@ import org.apache.zookeeper.ZooKeeper;
 import org.apache.zookeeper.data.Stat;
 
 import com.google.gson.Gson;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import org.apache.zookeeper.KeeperException;
 
 public class Zookeeper {
@@ -34,6 +31,10 @@ public class Zookeeper {
         addRootNodes();
     }
 
+    /**
+     * Adds to tree (if not exist) the root objects used to store the endpoints
+     * information
+     */
     private void addRootNodes() {
         try {
             Stat stat = getZooKeeper().exists(BASE_PATH, false);
@@ -70,7 +71,7 @@ public class Zookeeper {
     public boolean saveValue(String id, Endpoint value) {
         try {
             String path = BASE_PATH + "/" + id;
-            
+
             Stat stat = getZooKeeper().exists(BASE_PATH, false);
 
             if (stat == null) {
@@ -78,7 +79,7 @@ public class Zookeeper {
             }
 
             byte[] data = new Gson().toJson(value).getBytes();
-            
+
             stat = getZooKeeper().exists(path, false);
             if (stat == null) {
                 getZooKeeper().create(path, data, ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
@@ -94,17 +95,17 @@ public class Zookeeper {
             return false;
         }
     }
-    
-    public boolean removeValue (String id){
+
+    public boolean removeValue(String id) {
         try {
             String path = BASE_PATH + "/" + id;
             Stat stat = getZooKeeper().exists(path, false);
-            
+
             if (stat == null) {
                 return false;
             }
-            
-            getZooKeeper().delete(path, getZooKeeper().exists(path,true).getVersion());
+
+            getZooKeeper().delete(path, getZooKeeper().exists(path, true).getVersion());
             return true;
         } catch (KeeperException | InterruptedException ex) {
             ex.printStackTrace();

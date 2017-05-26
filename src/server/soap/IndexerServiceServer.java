@@ -120,7 +120,6 @@ public class IndexerServiceServer {
                 int status = registerRendezVous(rendezVousURL);
                 if (status != 0) {
                     if (status == 204) {
-                        indexerServiceImpl.setUrl(rendezVousURL); //Sets rendezvous location on resources
                         System.err.println("Service registered succesfully");
                         //Creating keepAlive thread
                         new Thread(new HeartBeat()).start();

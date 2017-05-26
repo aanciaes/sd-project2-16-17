@@ -13,14 +13,11 @@ import com.github.scribejava.core.oauth.OAuth10aService;
 import java.io.IOException;
 import java.util.Scanner;
 import java.util.concurrent.ExecutionException;
+
 /**
- *
- * @author miguel
+ * Class used to get keys and tokens from twitter API
  */
 public class RequestAuthentication {
-    
-    private static final String SECRET = "secret";
-    
 
     public static void main(String... args) {
         try {
@@ -64,8 +61,7 @@ public class RequestAuthentication {
             System.err.println("apiSecret: " + serverConfig.getApiSecret());
             System.err.println("token: " + serverConfig.getToken());
             System.err.println("tokenSecret: " + serverConfig.getTokenSecret());
- 
-            
+
 //            for (int retry = 0; retry < 3; retry++) {
 //                try {
 //                   Client client = ClientBuilder.newBuilder().hostnameVerifier(new IndexerServiceServer.InsecureHostnameVerifier()).build();
@@ -81,7 +77,6 @@ public class RequestAuthentication {
 //                    //retry method up to three times
 //                }
 //            }
-
         } catch (IOException | InterruptedException | ExecutionException ex) {
             ex.printStackTrace();
         }

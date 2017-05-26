@@ -1,5 +1,9 @@
+/*
+ * @author: Miguel Anciaes n43367 (m.anciaes@campus.fct.unl.pt)
+ * @author: Ricardo Amaral n43368 (rm.amaral@campus.fct.unl.pt)
+ */
 package api.soap;
- 
+
 import api.Document;
 import api.ServerConfig;
 import java.util.List;
@@ -9,7 +13,7 @@ import javax.xml.ws.WebFault;
 
 @WebService
 public interface IndexerService {
-    
+
     @WebFault
     class InvalidArgumentException extends Exception {
 
@@ -17,7 +21,8 @@ public interface IndexerService {
 
         public InvalidArgumentException() {
             super("");
-        }        
+        }
+
         public InvalidArgumentException(String msg) {
             super(msg);
         }
@@ -30,15 +35,16 @@ public interface IndexerService {
 
         public SecurityException() {
             super("");
-        }        
+        }
+
         public SecurityException(String msg) {
             super(msg);
         }
     }
 
-    static final String NAME="IndexerService";
-    static final String NAMESPACE="http://sd2017";
-    static final String INTERFACE="api.soap.IndexerService";
+    static final String NAME = "IndexerService";
+    static final String NAMESPACE = "http://sd2017";
+    static final String INTERFACE = "api.soap.IndexerService";
 
     /* keywords contains a list of works separated by '+'
      * returns the list of urls of the documents stored in this server that contain all the keywords 
@@ -46,7 +52,7 @@ public interface IndexerService {
      * throws SecurityException on security problem
      */
     @WebMethod
-    List<String> search(String keywords) throws InvalidArgumentException ;
+    List<String> search(String keywords) throws InvalidArgumentException;
 
     /*
      * secret: for protecting access to this function passed as a query parameter
@@ -55,7 +61,7 @@ public interface IndexerService {
      * throws SecurityException on security problem
      */
     @WebMethod
-    void configure(String secret, ServerConfig config) throws InvalidArgumentException, SecurityException ;
+    void configure(String secret, ServerConfig config) throws InvalidArgumentException, SecurityException;
 
     /*
      * secret protects access to this function.
@@ -64,7 +70,7 @@ public interface IndexerService {
      * throws SecurityException on security problem
      */
     @WebMethod
-    boolean add(Document doc, String secret) throws InvalidArgumentException, SecurityException ;
+    boolean add(Document doc, String secret) throws InvalidArgumentException, SecurityException;
 
     /*
      * secret protects access to this function.
@@ -73,8 +79,8 @@ public interface IndexerService {
      * throws SecurityException on security problem
      */
     @WebMethod
-    boolean remove(String id, String secret) throws InvalidArgumentException, SecurityException ;
-    
+    boolean remove(String id, String secret) throws InvalidArgumentException, SecurityException;
+
     /*
      * Auxiliar method to delete document only on this server
      * return true if document was removed, false it not

@@ -46,7 +46,7 @@ public class TwitterProxy {
     //Time before server raises exception
     private static final int CONNECT_TIMEOUT = 1000;
     private static final int READ_TIMEOUT = 1000;
-    
+
     public static String SECRET = "secret";
 
     //this.endpoint
@@ -92,7 +92,7 @@ public class TwitterProxy {
         //Discovering RendezVousServer
         //Setting up multicast request.
         MulticastSocket socket = new MulticastSocket();
-        
+
         //Send multicast request with MESSAGE - Send up to three times
         for (int retry = 0; retry < 3; retry++) {
 
